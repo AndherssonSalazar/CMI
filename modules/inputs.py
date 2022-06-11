@@ -10,8 +10,18 @@ from modules.params import(
 )
 class Inputs:
     def __init__(self) -> None:
-        self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT)
-        self.df_export_branch = pd.read_excel(NAME_DF_DATA_EXPORT_BRANCH)
+        try:
+            self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT)
+        except Exception as e:
+            try:
+                self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT1)
+            except Exception as e:
+                try:
+                    self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT2)
+                except Exception as e:
+                    error_value="[Error]======No existe ninguno de los tres Archivos input ======[Error]"
+                    raise ValueError(error_value)
+        #self.df_export_branch = pd.read_excel(NAME_DF_DATA_EXPORT_BRANCH)
         self.df_truck = pd.read_excel(NAME_DF_DATA_TRUCK)
         self.df_client = pd.read_excel(NAME_DF_DATA_CLIENT)
         self.df_sku_data = pd.read_excel(NAME_DF_SKU_DATA)

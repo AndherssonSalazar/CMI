@@ -19,7 +19,8 @@ if __name__ =='__main__':
         print('=======================================================================')
         input('[SUCESS] Presionar enter para cerrar...')
     except Exception as e:
+        print(e)
         traceback.print_exc()
         print(e)
         input('[ERROR] Presione enter para cerrar la consola error en el proceso...')
-# pyinstaller --hidden-import=pkg_resources.py2_warn --onefile --clean 
+#pyinstaller --hidden-import=pkg_resources.py2_warn --onefile --clean CMI.py

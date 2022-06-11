@@ -4,6 +4,8 @@ import os
 NAME_FOLDER_INPUTS = 'Inputs'
 NAME_FOLDER_REPORT = 'Reports'
 NAME_DF_DATA_EXPORT = os.path.join(NAME_FOLDER_INPUTS,'Formato_2.11_Dijisa_export.xlsx')
+NAME_DF_DATA_EXPORT1 = os.path.join(NAME_FOLDER_INPUTS,'Formato 2.11 (Alvarez Bohl).xlsx')
+NAME_DF_DATA_EXPORT2 = os.path.join(NAME_FOLDER_INPUTS,'Formato 2.11 (AGA).xlsx')
 NAME_DF_DATA_EXPORT_BRANCH = os.path.join(NAME_FOLDER_INPUTS,'Formato_2.11_Dijisa_sucursal_export.xlsx')
 NAME_DF_DATA_TRUCK = os.path.join(NAME_FOLDER_INPUTS,'Master Data Camiones.xlsx')
 NAME_DF_DATA_CLIENT = os.path.join(NAME_FOLDER_INPUTS,'Master Data Cliente.xlsx')
@@ -14,6 +16,7 @@ NAME_REPORT_EXPORT = os.path.join(NAME_FOLDER_REPORT,'Formato_2.11_Dijisa_export
 NAME_REPORT_EXPORT_BRANCH = os.path.join(NAME_FOLDER_REPORT,'Formato_2.11_Dijisa_sucursal_export(Report).xlsx')
 NAME_REPORT_BRANCHS=os.path.join(NAME_FOLDER_REPORT,'Sucursales Data(Report).xlsx')
 NAME_REPORT_TRUCKS_CONSOLIDATION=os.path.join(NAME_FOLDER_REPORT,'Consolidado Camiones(Report).xlsx')
+NAME_REPORT_ERROR=os.path.join(NAME_FOLDER_REPORT,'ERRORES.xlsx')
 # ====
 
 
