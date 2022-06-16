@@ -5,6 +5,7 @@ import copy
 import math
 class Process:
     def __init__(self,inputs : Inputs) -> None:
+        self.__errores=None
         print('==>[INFO] Agrupando por sucursal')
         self.__df_export_order = self._order_by(inputs.df_export,'Sucursal', True)
         self.__df_export_order["Volumen"], self.__df_export_order["Peso"], self.__df_export_order["Amarre"], self.__df_export_order["VolumenAjustado"], self.__df_export_order["NCajasAumentar"], self.__df_export_order["NCajasAumentarCeil"], self.__df_export_order["VolumenAumentarDisminuir"], self.__df_export_order["FinalPurchaseFinal"], self.__df_export_order["VolumenFinal"], self.__df_export_order["PorcentajePallet"], self.__df_export_order["AjustePallet"], self.__df_export_order["VolumenFinalTotal"], self.__df_export_order["NCajasPicking"]=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -25,10 +26,15 @@ class Process:
         self._match_data_client(self.__branchs, inputs.df_client)
         print('==>[INFO] Match SKU Data')
         self._amarre_x_ean(self.__df_export_order, inputs.df_sku_data)
+        if self.__errores is not None:
+            report = Report(None)
+            report.save_error(self.__errores)
+            error_value="[Error]======Revisar el Reporte de Errores ======[Error]"
+            raise ValueError(error_value)
         print('==>[INFO] Agrupar Disponible')
         self.__list_availables=self._group_available(self.__df_export_order)
         print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible')
-        self.__df_export_order = self._order_by_branch_coment_cod_price_volume_weight(self.__df_export_order)
+        #self.__df_export_order = self._order_by_branch_coment_cod_price_volume_weight(self.__df_export_order)
         for i in range(len(self.__list_availables)):
             self.__list_availables[i]=self._order_by_cod_price_volume_weight(self.__list_availables[i])
         print('==>[INFO] Asignando o quitando volumen para camiones optimos')
@@ -37,18 +43,18 @@ class Process:
             self._assigning_volume_weigth_remaining(self.__df_export_order, self.__list_availables[i], self.__branchs)
         print('==>[INFO] Rutas y Camiones a la sucursal')
         self._fill_route_truck_branch(self.__branchs, self.__branchs_consolidation)
-        print('==>[INFO] Llenado de data reporte Sucursal')
-        self._fill_data_branch(self.__df_export_order, self.__branchs)
         print('==>[INFO] Llenado de data producto')
         self._fill_data_product(self.__df_export_order)
+        print('==>[INFO] Llenado de data reporte Sucursal')
+        self._fill_data_branch(self.__df_export_order, self.__branchs)
         print('==>[INFO] Limpiar Campos Innecesarios')
         self._delete_unnecesary_fields()
     def _order_by(self, df, name_of_column, order):
         return df.sort_values(by=[name_of_column], ascending=[order])
     def _order_by_cod_price_volume_weight(self, df):
-        return df.sort_values(by=['ABC XYZ', 'PRECIO GIV', 'Volumen', 'Peso'],ascending=[True, True, False, False])
+        return df.sort_values(by=['ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, False, False])
     def _order_by_branch_coment_cod_price_volume_weight(self, df):
-        return df.sort_values(by=['Sucursal', 'Comentario', 'ABC XYZ', 'PRECIO GIV', 'Volumen', 'Peso'],ascending=[True, True, True, True, False, False])
+        return df.sort_values(by=['Sucursal', 'Comentario', 'ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, True, True, False, False])
     def _volume_weight_x_ean(self, eans, branchs, volumes):
         sinVolumenPeso=[]
         for ean in eans.itertuples(index=True, name='PandasEANS'):
@@ -64,15 +70,17 @@ class Process:
                     eans.loc[ean.Index, 'VolumenFinalTotal'] += ean.Volumen * ean._9
                     break
             if not encontrado:
-                sinVolumenPeso.append(ean)
+                exists=False
+                for i in range(len(sinVolumenPeso)):
+                    if sinVolumenPeso[i]["EAN"]==ean.EAN:
+                        exists=True
+                        break
+                if not exists:
+                    sinVolumenPeso.append({"EAN":ean.EAN, "Descripcion":ean.Descripción})
         if len(sinVolumenPeso)>0:
-            ErroresEANS = pd.DataFrame(sinVolumenPeso)
-            ErroresEANS = pd.DataFrame(ErroresEANS['EAN'])
-            ErroresEANS.loc[:,'Descripcion'] = 'Sin Volumen'
-            report = Report(None)
-            report.save_error(ErroresEANS)
-            error_value="[Error]======No existe Volumen o Peso para algunos EANs ======[Error]"
-            raise ValueError(error_value)
+            ErroresEANSVol = pd.DataFrame(sinVolumenPeso)
+            ErroresEANSVol.loc[:,'Comentario'] = 'Sin Volumen'
+            self.__errores=ErroresEANSVol
         self._volume_weight_x_branch(eans, branchs)
     def _volume_weight_x_branch(self, eans, branchs):
         # ean._9 = "Final Purchase"
@@ -97,16 +105,18 @@ class Process:
                     df.loc[ean.Index, 'Amarre'] = sk.AMARRE
                     break
             if not encontrado:
-                df.loc[ean.Index, 'Amarre'] = 1
-                sinAmarre.append(ean)
+                #df.loc[ean.Index, 'Amarre'] = 1
+                exists=False
+                for i in range(len(sinAmarre)):
+                    if sinAmarre[i]["EAN"]==ean.EAN:
+                        exists=True
+                        break
+                if not exists:
+                    sinAmarre.append({"EAN":ean.EAN, "Descripcion":ean.Descripción})
         if len(sinAmarre)>0:
             ErroresEANS = pd.DataFrame(sinAmarre)
-            ErroresEANS = pd.DataFrame(ErroresEANS['EAN'])
-            ErroresEANS.loc[:,'Descripcion'] = 'Sin Amarre'
-            report = Report(None)
-            report.save_error(ErroresEANS)
-            error_value="[Error]======No existe Amarre para algunos EANs ======[Error]"
-            raise ValueError(error_value)
+            ErroresEANS.loc[:,'Comentario'] = 'Sin Amarre'
+            self.__errores= pd.concat([self.__errores, ErroresEANS], ignore_index = True)
     def _consolidation_routes(self, branchs, routes):
         can_consolidate=pd.DataFrame(routes.iloc[16:])[['CMI REPLENISHMENT MODEL','Unnamed: 1','Unnamed: 2']].rename(columns = {'CMI REPLENISHMENT MODEL':'Sucursal', 'Unnamed: 1':'Ruta', 'Unnamed: 2':'TipoCamion'})
         for co in can_consolidate.itertuples(index=True, name='Pandas'):
@@ -242,10 +252,8 @@ class Process:
             if product._16!='CX' or product._16!='CY' or product._16!='CZ':
                 if product.Volumen==0: continue
                 for branch in branchs.itertuples(index=True, name='PandasBranchs'):
-                    if branch.DiferenciaVolumen==0.0: 
-                        continue
-                    elif (branch.DiferenciaVolumen - branch.VolumenAumentado)==0.0: 
-                        continue
+                    if branch.DiferenciaVolumen==0.0: continue
+                    elif (branch.DiferenciaVolumen - branch.VolumenAumentado)==0.0: continue
                     elif product.Sucursal==branch.Sucursal:
                         VolumenAjustado=((product._9*product.Volumen)/branch.Volumen)*branch.DiferenciaVolumen
                         NCajasAumentar=VolumenAjustado/product.Volumen
@@ -286,6 +294,8 @@ class Process:
                                     else:
                                         AjustePallet = (math.floor(PorcentajePallet)+1.0)*product.Amarre
                                 VolumenFinalTotal=AjustePallet*product.Volumen
+                                if VolumenFinalTotal<product.Volumen*product._9:
+                                    continue
                                 if (VolumenFinalTotal-product.Volumen*product._9+branchs['VolumenAumentado'][branch.Index])<=branch.DiferenciaVolumen:
                                     #LLenado de Data
                                     df.loc[product.Index, 'VolumenAjustado']=VolumenAjustado
@@ -299,11 +309,11 @@ class Process:
                                     df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
                                     df.loc[product.Index, 'NCajasPicking']=NCajasPicking
                                     branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9
-                                #else:
-                                #    break
                             else:
                                 AjustePallet = PorcentajePallet*product.Amarre
                                 VolumenFinalTotal=AjustePallet*product.Volumen
+                                if VolumenFinalTotal>product.Volumen*product._9:
+                                    continue
                                 if (VolumenFinalTotal-product.Volumen*product._9+branchs['VolumenAumentado'][branch.Index])>=branch.DiferenciaVolumen:
                                     #LLenado de Data
                                     df.loc[product.Index, 'VolumenAjustado']=VolumenAjustado
@@ -317,8 +327,6 @@ class Process:
                                     df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
                                     df.loc[product.Index, 'NCajasPicking']=NCajasPicking
                                     branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9
-                                else:
-                                    break
                         break
     def _fill_route_truck_branch(self, branchs, branchs_consolidation):
         for consolidation in branchs_consolidation.itertuples(index=True, name='PandasConsolidation'):
@@ -328,6 +336,12 @@ class Process:
                     if branch.Sucursal==name:
                         branchs.loc[branch.Index, 'Ruta']=consolidation.Ruta
                         branchs.loc[branch.Index, 'Camion']=consolidation.Camion
+    def _fill_data_product(self, df):
+        for product in df.itertuples(index=True, name='PandasProducts'):
+            if product.Comentario=='DESCONTINUADO': continue
+            if product.NCajasAumentarCeil==0.0:
+                df.loc[product.Index, 'AjustePallet']=product._9
+                df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*product._9
     def _fill_data_branch(self, df, branchs):
         # product._11 = "PRECIO GIV"
         # product._12 = "Venta Mensual con factor"
@@ -342,24 +356,16 @@ class Process:
             for product in df.itertuples(index=True, name='PandasProducts'):
                 if product.Sucursal==branch.Sucursal:
                     sumaPicking+=product.NCajasPicking
-                    sumaFinalPurchase+=product._9
+                    sumaFinalPurchase+=product.AjustePallet
                     sumaInventario+=product.Inventario
                     sumaInventarioAjuste+=(product._22 + product.AjustePallet)
                     sumaVentaMensualFactor+=product._12
-                    if product.FinalPurchaseFinal==0 and product.Amarre!=0:
-                        compraFinal+=product._9/product.Amarre*product._11
-                    else:
-                        compraFinal+=product.AjustePallet*product._11
+                    compraFinal+=product.AjustePallet*product._11
             branchs.loc[branch.Index, 'NCajasPicking']=sumaPicking/sumaFinalPurchase
             branchs.loc[branch.Index, 'DOHInicial']=sumaInventario*30/sumaVentaMensualFactor
             branchs.loc[branch.Index, 'DOHFinal']=sumaInventarioAjuste*30/sumaVentaMensualFactor
             branchs.loc[branch.Index, 'CompraFinal']=compraFinal
-            branchs.loc[branch.Index, 'VolumenFinal']=branchs['Volumen'][branch.Index]+branchs['VolumenAumentado'][branch.Index]
-    def _fill_data_product(self, df):
-        for product in df.itertuples(index=True, name='PandasProducts'):
-            if product.VolumenFinalTotal==0.0:
-                df.loc[product.Index, 'AjustePallet']=product._9
-                df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*product._9
+            branchs.loc[branch.Index, 'VolumenFinal']=branch.Volumen+branch.VolumenAumentado
     def _delete_unnecesary_fields(self):
         del self.__branchs['Cantidad']
         #del self.__branchs['DOH']
@@ -374,13 +380,13 @@ class Process:
         del self.__df_export_order['Volumen']
         del self.__df_export_order['Peso']
         #Eliminar para reporte
-        del self.__df_export_order['VolumenAjustado']
+        """del self.__df_export_order['VolumenAjustado']
         del self.__df_export_order['NCajasAumentar']
         del self.__df_export_order['NCajasAumentarCeil']
         del self.__df_export_order['VolumenAumentarDisminuir']
         del self.__df_export_order['FinalPurchaseFinal']
         del self.__df_export_order['VolumenFinal']
-        del self.__df_export_order['PorcentajePallet']
+        del self.__df_export_order['PorcentajePallet']"""
     def get_data(self):
         return self.__df_export_order
     def get_branchs_data(self):
