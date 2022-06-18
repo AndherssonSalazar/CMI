@@ -13,6 +13,7 @@ from modules.params import(
 class Inputs:
     def __init__(self) -> None:
         name=input('==>[INPUT] Escribe el nombre del archivo: \n')
+        print('==>[INFO] cargando Archivos...')
         try:
             self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT)
         except Exception as e:
