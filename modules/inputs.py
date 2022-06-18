@@ -12,6 +12,7 @@ from modules.params import(
 )
 class Inputs:
     def __init__(self) -> None:
+        name=input('==>[INPUT] Escribe el nombre del archivo: \n')
         try:
             self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT)
         except Exception as e:
@@ -28,4 +29,5 @@ class Inputs:
         self.df_client = pd.read_excel(NAME_DF_DATA_CLIENT)
         self.df_sku_data = pd.read_excel(NAME_DF_SKU_DATA)
         self.df_weight_volume = pd.read_excel(NAME_DF_DATA_WEIGHT_VOLUME)
+        self.df_weight_volume['Volumen']=self.df_weight_volume['Volumen'].apply(lambda x:round(x,2))
         self.df_cmi = pd.read_excel(NAME_DF_DATA_CMI)

@@ -24,3 +24,6 @@ if __name__ =='__main__':
         print(e)
         input('[ERROR] Presione enter para cerrar la consola error en el proceso...')
 #pyinstaller --hidden-import=pkg_resources.py2_warn --onefile --clean CMI.py
+#pyinstaller.exe app.py --exclude-module _bootlocal
+#pyinstaller --exclude-module _bootlocal --hidden-import=pkg_resources.py2_warn --onefile --clean CMI.py
+

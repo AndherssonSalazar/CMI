@@ -67,7 +67,6 @@ class Process:
                     encontrado=True
                     eans.loc[ean.Index, 'Volumen'] = vol.Volumen
                     eans.loc[ean.Index, 'Peso'] = vol.Peso/1000
-                    eans.loc[ean.Index, 'VolumenFinalTotal'] += ean.Volumen * ean._9
                     break
             if not encontrado:
                 exists=False
@@ -269,6 +268,7 @@ class Process:
                         VolumenFinalTotal=0.0 
                         asignar=True
                         numberPurchaseGoal = round(NCajasAumentar) if branch.DiferenciaVolumen>0 else -round(NCajasAumentar)
+                        lastVolume=0.0
                         for i in range(numberPurchaseGoal):
                             NCajasAumentarCeil = i+1 if branch.DiferenciaVolumen>0 else -i-1
                             VolumenAumentarDisminuir= NCajasAumentarCeil*product.Volumen
@@ -308,7 +308,8 @@ class Process:
                                     df.loc[product.Index, 'AjustePallet']=AjustePallet
                                     df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
                                     df.loc[product.Index, 'NCajasPicking']=NCajasPicking
-                                    branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9
+                                    branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9-lastVolume
+                                    lastVolume=VolumenFinalTotal-product.Volumen*product._9
                             else:
                                 AjustePallet = PorcentajePallet*product.Amarre
                                 VolumenFinalTotal=AjustePallet*product.Volumen
@@ -326,7 +327,8 @@ class Process:
                                     df.loc[product.Index, 'AjustePallet']=AjustePallet
                                     df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
                                     df.loc[product.Index, 'NCajasPicking']=NCajasPicking
-                                    branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9
+                                    branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9-lastVolume
+                                    lastVolume=VolumenFinalTotal-product.Volumen*product._9
                         break
     def _fill_route_truck_branch(self, branchs, branchs_consolidation):
         for consolidation in branchs_consolidation.itertuples(index=True, name='PandasConsolidation'):
@@ -377,7 +379,7 @@ class Process:
         del self.__branchs['DiferenciaPeso']
         del self.__branchs['PesoAumentado']
         del self.__branchs['DiferenciaVolumen']
-        del self.__df_export_order['Volumen']
+        #del self.__df_export_order['Volumen']
         del self.__df_export_order['Peso']
         #Eliminar para reporte
         """del self.__df_export_order['VolumenAjustado']
