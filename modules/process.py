@@ -5,6 +5,7 @@ import copy
 import math
 class Process:
     def __init__(self,inputs : Inputs) -> None:
+        self._inputs=inputs
         self.__errores=None
         print('==>[INFO] Agrupando por sucursal')
         self.__df_export_order = self._order_by(inputs.df_export,'Sucursal', True)
@@ -29,8 +30,7 @@ class Process:
         if self.__errores is not None:
             report = Report(None)
             report.save_error(self.__errores)
-            error_value="[Error]======Revisar el Reporte de Errores ======[Error]"
-            raise ValueError(error_value)
+            raise ValueError("[Error]======Revisar el Reporte de Errores ======[Error]")
         print('==>[INFO] Agrupar Disponible')
         self.__list_availables=self._group_available(self.__df_export_order)
         print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible')
@@ -49,6 +49,8 @@ class Process:
         self._fill_data_branch(self.__df_export_order, self.__branchs)
         print('==>[INFO] Limpiar Campos Innecesarios')
         self._delete_unnecesary_fields()
+    def getInputs(self):
+        return self._inputs
     def _order_by(self, df, name_of_column, order):
         return df.sort_values(by=[name_of_column], ascending=[order])
     def _order_by_cod_price_volume_weight(self, df):
@@ -57,16 +59,24 @@ class Process:
         return df.sort_values(by=['Sucursal', 'Comentario', 'ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, True, True, False, False])
     def _volume_weight_x_ean(self, eans, branchs, volumes):
         sinVolumenPeso=[]
+        volumenCero=[]
         for ean in eans.itertuples(index=True, name='PandasEANS'):
             encontrado=False
-            if ean.Comentario=='DESCONTINUADO':
-                encontrado=True
-                continue
+            if ean.Comentario=='DESCONTINUADO': continue
             for vol in volumes.itertuples(index=True, name='PandasVolPes'):
                 if ean.EAN==vol.EAN:
                     encontrado=True
-                    eans.loc[ean.Index, 'Volumen'] = vol.Volumen
-                    eans.loc[ean.Index, 'Peso'] = vol.Peso/1000
+                    if vol.Volumen==0.0:
+                        exist=False
+                        for i in range(len(volumenCero)):
+                            if volumenCero[i]["EAN"]==ean.EAN:
+                                exist=True
+                                break
+                        if not exist:
+                            volumenCero.append({"EAN":ean.EAN, "Descripcion":ean.Descripción})
+                    else:
+                        eans.loc[ean.Index, 'Volumen'] = vol.Volumen
+                        eans.loc[ean.Index, 'Peso'] = vol.Peso/1000
                     break
             if not encontrado:
                 exists=False
@@ -80,12 +90,15 @@ class Process:
             ErroresEANSVol = pd.DataFrame(sinVolumenPeso)
             ErroresEANSVol.loc[:,'Comentario'] = 'Sin Volumen'
             self.__errores=ErroresEANSVol
+        if len(volumenCero)>0:
+            ErroresEANSVolu = pd.DataFrame(volumenCero)
+            ErroresEANSVolu.loc[:,'Comentario'] = 'Volumen de EAN "no Descontinuado" no puede ser igual a cero'
+            self.__errores= pd.concat([self.__errores, ErroresEANSVolu], ignore_index = True)
         self._volume_weight_x_branch(eans, branchs)
     def _volume_weight_x_branch(self, eans, branchs):
         # ean._9 = "Final Purchase"
         for ean in eans.itertuples(index=True, name='PandasEANS'):
-            if ean.Comentario=='DESCONTINUADO':
-                continue
+            if ean.Comentario=='DESCONTINUADO': continue
             for bran in branchs.itertuples(index=True, name='PandasSucursales'):
                 if ean.Sucursal==bran.Sucursal:
                     branchs.loc[bran.Index, 'Volumen'] += ean.Volumen * ean._9
@@ -95,9 +108,7 @@ class Process:
         sinAmarre=[]
         for ean in df.itertuples(index=True, name='PandasEANS'):
             encontrado=False
-            if ean.Comentario=='DESCONTINUADO':
-                encontrado=True
-                continue
+            if ean.Comentario=='DESCONTINUADO': continue
             for sk in skus.itertuples(index=True, name='PandasSKUS'):
                 if ean.EAN==sk.EAN:
                     encontrado=True
@@ -247,89 +258,93 @@ class Process:
     def _assigning_volume_weigth_remaining(self, df, group_df, branchs):
         # ean._9 = "Final Purchase"
         # product._16 = "ABC XYZ"
+        totalSumVol=self._getTotalVolumen(group_df)
         for product in group_df.itertuples(index=True, name='PandasProducts'):
-            if product._16!='CX' or product._16!='CY' or product._16!='CZ':
-                if product.Volumen==0: continue
-                for branch in branchs.itertuples(index=True, name='PandasBranchs'):
-                    if branch.DiferenciaVolumen==0.0: continue
-                    elif (branch.DiferenciaVolumen - branch.VolumenAumentado)==0.0: continue
-                    elif product.Sucursal==branch.Sucursal:
-                        VolumenAjustado=((product._9*product.Volumen)/branch.Volumen)*branch.DiferenciaVolumen
-                        NCajasAumentar=VolumenAjustado/product.Volumen
-                        if round(NCajasAumentar)==0: break
-                        NCajasAumentarCeil=0
-                        VolumenAumentarDisminuir=0.0
-                        FinalPurchaseFinal=0.0
-                        VolumenFinal=0.0
-                        PorcentajePallet=0.0
-                        PorcentajePickingXCodigo=0.0
-                        NCajasPicking=0.0
-                        AjustePallet=0.0
-                        VolumenFinalTotal=0.0 
-                        asignar=True
-                        numberPurchaseGoal = round(NCajasAumentar) if branch.DiferenciaVolumen>0 else -round(NCajasAumentar)
-                        lastVolume=0.0
-                        for i in range(numberPurchaseGoal):
-                            NCajasAumentarCeil = i+1 if branch.DiferenciaVolumen>0 else -i-1
-                            VolumenAumentarDisminuir= NCajasAumentarCeil*product.Volumen
-                            FinalPurchaseFinal= NCajasAumentarCeil+product._9
-                            VolumenFinal= product.Volumen*product._9+VolumenAumentarDisminuir
-                            PorcentajePallet = FinalPurchaseFinal/product.Amarre
-                            if PorcentajePallet<1.0:
-                                NCajasPicking=PorcentajePallet*product.Amarre
-                            else:
-                                NCajasPicking=(PorcentajePallet-math.floor(PorcentajePallet))*product.Amarre
-                            if branch.DiferenciaVolumen>0.0:
-                                if PorcentajePallet<=1.0: #menos a una pallet
-                                    if PorcentajePallet>=branch.PickingMas:
-                                        AjustePallet = 1.0*product.Amarre
-                                    else:
-                                        AjustePallet = PorcentajePallet*product.Amarre
-                                else: #mas de una pallet
-                                    missingPercent = PorcentajePallet-math.floor(PorcentajePallet)
-                                    if missingPercent<branch.PickingMenos:
-                                        AjustePallet = math.floor(PorcentajePallet)*product.Amarre
-                                    elif missingPercent>=branch.PickingMenos and missingPercent<=branch.PickingMas:
-                                        AjustePallet = PorcentajePallet*product.Amarre
-                                    else:
-                                        AjustePallet = (math.floor(PorcentajePallet)+1.0)*product.Amarre
-                                VolumenFinalTotal=AjustePallet*product.Volumen
-                                if VolumenFinalTotal<product.Volumen*product._9:
-                                    continue
-                                if (VolumenFinalTotal-product.Volumen*product._9+branchs['VolumenAumentado'][branch.Index])<=branch.DiferenciaVolumen:
-                                    #LLenado de Data
-                                    df.loc[product.Index, 'VolumenAjustado']=VolumenAjustado
-                                    df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
-                                    df.loc[product.Index, 'NCajasAumentarCeil']=NCajasAumentarCeil
-                                    df.loc[product.Index, 'VolumenAumentarDisminuir']=VolumenAumentarDisminuir
-                                    df.loc[product.Index, 'FinalPurchaseFinal']=FinalPurchaseFinal
-                                    df.loc[product.Index, 'VolumenFinal']=VolumenFinal
-                                    df.loc[product.Index, 'PorcentajePallet']=PorcentajePallet
-                                    df.loc[product.Index, 'AjustePallet']=AjustePallet
-                                    df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
-                                    df.loc[product.Index, 'NCajasPicking']=NCajasPicking
-                                    branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9-lastVolume
-                                    lastVolume=VolumenFinalTotal-product.Volumen*product._9
-                            else:
-                                AjustePallet = PorcentajePallet*product.Amarre
-                                VolumenFinalTotal=AjustePallet*product.Volumen
-                                if VolumenFinalTotal>product.Volumen*product._9:
-                                    continue
-                                if (VolumenFinalTotal-product.Volumen*product._9+branchs['VolumenAumentado'][branch.Index])>=branch.DiferenciaVolumen:
-                                    #LLenado de Data
-                                    df.loc[product.Index, 'VolumenAjustado']=VolumenAjustado
-                                    df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
-                                    df.loc[product.Index, 'NCajasAumentarCeil']=NCajasAumentarCeil
-                                    df.loc[product.Index, 'VolumenAumentarDisminuir']=VolumenAumentarDisminuir
-                                    df.loc[product.Index, 'FinalPurchaseFinal']=FinalPurchaseFinal
-                                    df.loc[product.Index, 'VolumenFinal']=VolumenFinal
-                                    df.loc[product.Index, 'PorcentajePallet']=PorcentajePallet
-                                    df.loc[product.Index, 'AjustePallet']=AjustePallet
-                                    df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
-                                    df.loc[product.Index, 'NCajasPicking']=NCajasPicking
-                                    branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9-lastVolume
-                                    lastVolume=VolumenFinalTotal-product.Volumen*product._9
-                        break
+            if product._16=='CX' or product._16=='CY' or product._16=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
+            for branch in branchs.itertuples(index=True, name='PandasBranchs'):
+                if branch.DiferenciaVolumen==0.0: continue
+                elif (branch.DiferenciaVolumen - branch.VolumenAumentado)==0.0: continue
+                elif product.Sucursal==branch.Sucursal:
+                    VolumenAjustado=((product._9*product.Volumen)/totalSumVol)*branch.DiferenciaVolumen
+                    NCajasAumentar=VolumenAjustado/product.Volumen
+                    if round(NCajasAumentar)==0: break
+                    NCajasAumentarCeil=0
+                    VolumenAumentarDisminuir=0.0
+                    FinalPurchaseFinal=0.0
+                    VolumenFinal=0.0
+                    PorcentajePallet=0.0
+                    NCajasPicking=0.0
+                    AjustePallet=0.0
+                    VolumenFinalTotal=0.0
+                    numberPurchaseGoal = round(NCajasAumentar) if branch.DiferenciaVolumen>0 else -round(NCajasAumentar)
+                    lastVolume=0.0
+                    for i in range(numberPurchaseGoal):
+                        NCajasAumentarCeil = i+1 if branch.DiferenciaVolumen>0 else -i-1
+                        VolumenAumentarDisminuir= NCajasAumentarCeil*product.Volumen
+                        FinalPurchaseFinal= NCajasAumentarCeil+product._9
+                        VolumenFinal= product.Volumen*product._9+VolumenAumentarDisminuir
+                        PorcentajePallet = FinalPurchaseFinal/product.Amarre
+                        if PorcentajePallet<1.0:
+                            NCajasPicking=PorcentajePallet*product.Amarre
+                        else:
+                            NCajasPicking=(PorcentajePallet-math.floor(PorcentajePallet))*product.Amarre
+                        if branch.DiferenciaVolumen>0.0:
+                            if PorcentajePallet<=1.0: #menos a una pallet
+                                if PorcentajePallet>=branch.PickingMas:
+                                    AjustePallet = 1.0*product.Amarre
+                                else:
+                                    AjustePallet = PorcentajePallet*product.Amarre
+                            else: #mas de una pallet
+                                missingPercent = PorcentajePallet-math.floor(PorcentajePallet)
+                                if missingPercent<branch.PickingMenos:
+                                    AjustePallet = math.floor(PorcentajePallet)*product.Amarre
+                                elif missingPercent>=branch.PickingMenos and missingPercent<=branch.PickingMas:
+                                    AjustePallet = PorcentajePallet*product.Amarre
+                                else:
+                                    AjustePallet = (math.floor(PorcentajePallet)+1.0)*product.Amarre
+                            VolumenFinalTotal=AjustePallet*product.Volumen
+                            if VolumenFinalTotal<product.Volumen*product._9:
+                                continue
+                            if (VolumenFinalTotal-product.Volumen*product._9+branchs['VolumenAumentado'][branch.Index])<=branch.DiferenciaVolumen:
+                                #LLenado de Data
+                                df.loc[product.Index, 'VolumenAjustado']=VolumenAjustado
+                                df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
+                                df.loc[product.Index, 'NCajasAumentarCeil']=NCajasAumentarCeil
+                                df.loc[product.Index, 'VolumenAumentarDisminuir']=VolumenAumentarDisminuir
+                                df.loc[product.Index, 'FinalPurchaseFinal']=FinalPurchaseFinal
+                                df.loc[product.Index, 'VolumenFinal']=VolumenFinal
+                                df.loc[product.Index, 'PorcentajePallet']=PorcentajePallet
+                                df.loc[product.Index, 'AjustePallet']=AjustePallet
+                                df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
+                                df.loc[product.Index, 'NCajasPicking']=NCajasPicking
+                                branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9-lastVolume
+                                lastVolume=VolumenFinalTotal-product.Volumen*product._9
+                        else:
+                            AjustePallet = PorcentajePallet*product.Amarre
+                            VolumenFinalTotal=AjustePallet*product.Volumen
+                            if VolumenFinalTotal>product.Volumen*product._9:
+                                continue
+                            if (VolumenFinalTotal-product.Volumen*product._9+branchs['VolumenAumentado'][branch.Index])>=branch.DiferenciaVolumen:
+                                #LLenado de Data
+                                df.loc[product.Index, 'VolumenAjustado']=VolumenAjustado
+                                df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
+                                df.loc[product.Index, 'NCajasAumentarCeil']=NCajasAumentarCeil
+                                df.loc[product.Index, 'VolumenAumentarDisminuir']=VolumenAumentarDisminuir
+                                df.loc[product.Index, 'FinalPurchaseFinal']=FinalPurchaseFinal
+                                df.loc[product.Index, 'VolumenFinal']=VolumenFinal
+                                df.loc[product.Index, 'PorcentajePallet']=PorcentajePallet
+                                df.loc[product.Index, 'AjustePallet']=AjustePallet
+                                df.loc[product.Index, 'VolumenFinalTotal']=VolumenFinalTotal
+                                df.loc[product.Index, 'NCajasPicking']=NCajasPicking
+                                branchs.loc[branch.Index, 'VolumenAumentado']+=VolumenFinalTotal-product.Volumen*product._9-lastVolume
+                                lastVolume=VolumenFinalTotal-product.Volumen*product._9
+                    break
+    def _getTotalVolumen(self, df_group):
+        sumVol=0.0
+        for product in df_group.itertuples(index=True, name='PandasProducts'):
+            if product._16=='CX' or product._16=='CY' or product._16=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
+            sumVol+=product.Volumen*product._9
+        return sumVol
     def _fill_route_truck_branch(self, branchs, branchs_consolidation):
         for consolidation in branchs_consolidation.itertuples(index=True, name='PandasConsolidation'):
             list_names=consolidation.Consolidado

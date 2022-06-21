@@ -1,9 +1,9 @@
+from math import prod
+import os
 import pandas as pd
+import pathlib
 from modules.params import(
-    NAME_DF_DATA_EXPORT,
-    NAME_DF_DATA_EXPORT1,
-    NAME_DF_DATA_EXPORT2,
-    NAME_DF_DATA_EXPORT_BRANCH,
+    NAME_FOLDER_OUTPUTS,
     NAME_DF_DATA_TRUCK,
     NAME_DF_DATA_CLIENT,
     NAME_DF_SKU_DATA,
@@ -12,23 +12,33 @@ from modules.params import(
 )
 class Inputs:
     def __init__(self) -> None:
-        name=input('==>[INPUT] Escribe el nombre del archivo: \n')
-        print('==>[INFO] cargando Archivos...')
-        try:
-            self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT)
-        except Exception as e:
+        print('==>[INFO] ELija una opcion')
+        directorio = pathlib.Path('Outputs')
+        self._ficheros = [fichero.name for fichero in directorio.iterdir() if not fichero.is_file()]
+        if len(self._ficheros)<=0:
+            raise ValueError("[Error]======No existen carpetas dentro de Outputs ======[Error]")
+        for i in range(len(self._ficheros)):
+            print("==>==> ["+str(i+1)+"]. "+self._ficheros[i])
+        self._numberOption=1
+        incorrect=True
+        while incorrect:
             try:
-                self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT1)
+                self._numberOption=int(input('==>==>[INPUT] Escribe el numero de la sucursal por favor: '))
+                if self._numberOption>0 and self._numberOption<=len(self._ficheros):
+                    incorrect=False
+                else:
+                    print('==>==>[INFO] El numero de opcion que escribiste no es correcto')
             except Exception as e:
-                try:
-                    self.df_export = pd.read_excel(NAME_DF_DATA_EXPORT2)
-                except Exception as e:
-                    error_value="[Error]======No existe ninguno de los tres Archivos input ======[Error]"
-                    raise ValueError(error_value)
-        #self.df_export_branch = pd.read_excel(NAME_DF_DATA_EXPORT_BRANCH)
+                print('==>==>[INFO] El numero de opcion que escribiste no es correcto')
+        print('==>[INFO] cargando Archivos...')
+        self.df_export=pd.read_excel(os.path.join(NAME_FOLDER_OUTPUTS, self._ficheros[self._numberOption-1],'Formato_2.11_'+self._ficheros[self._numberOption-1]+'_export.xlsx'))
         self.df_truck = pd.read_excel(NAME_DF_DATA_TRUCK)
         self.df_client = pd.read_excel(NAME_DF_DATA_CLIENT)
         self.df_sku_data = pd.read_excel(NAME_DF_SKU_DATA)
         self.df_weight_volume = pd.read_excel(NAME_DF_DATA_WEIGHT_VOLUME)
         self.df_weight_volume['Volumen']=self.df_weight_volume['Volumen'].apply(lambda x:round(x,2))
         self.df_cmi = pd.read_excel(NAME_DF_DATA_CMI)
+    def getDirectories(self):
+        return self._ficheros
+    def getNumberOption(self):
+        return self._numberOption

@@ -1,27 +1,23 @@
 import openpyxl
 import datetime
 import pandas as pd
+import os
 from openpyxl.styles import PatternFill
 from modules.params import (
-    NAME_REPORT_EXPORT,
-    NAME_REPORT_EXPORT_BRANCH,
+    NAME_FOLDER_REPORT,
     NAME_REPORT_BRANCHS,
-    NAME_REPORT_TRUCKS_CONSOLIDATION,
     NAME_REPORT_ERROR
 )
 class Report:
-    def __init__(self, cant_gate) -> None:
-        self.cant_gate = cant_gate
-    def _change_value(self, value):
-        return setting_value.get(value,value)
+    def __init__(self, process) -> None:
+        self.process = process
     def _header_style(self, df):
         return df.style.set_table_styles([{
        'selector': 'th',
        'props': [('background-color', '#add8e6')]
        }])
     def save_report(self):
-        self.cant_gate.get_data().rename (columns = {'AjustePallet':'Compra Final', 'VolumenFinalTotal':'Volumen Final', 'NCajasPicking':'Picking'}).to_excel(NAME_REPORT_EXPORT)
-        self.cant_gate.get_branchs_data().rename (columns = {'Volumen':'Volumen Inicial', 'VolumenAumentado':'Ajuste Volumen', 'Camion':'Camión', 'DOHInicial':'DOH Inicial', 'DOHFinal':'DOH Final', 'AjustePallet':'Compra Final S/.', 'VolumenFinal':'Volumen Final', 'NCajasPicking':'Cajas Picking'}).to_excel(NAME_REPORT_BRANCHS)
-        #self.cant_gate.get_trucks_consolidate().to_excel(NAME_REPORT_TRUCKS_CONSOLIDATION)
+        self.process.get_data().rename (columns = {'AjustePallet':'Compra Final', 'VolumenFinalTotal':'Volumen Final', 'NCajasPicking':'Picking'}).to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1],'Formato_2.11_'+self.process.getInputs()._ficheros[self.process.getInputs().getNumberOption()-1]+'_export.xlsx'))
+        self.process.get_branchs_data().rename (columns = {'Volumen':'Volumen Inicial', 'VolumenAumentado':'Ajuste Volumen', 'Camion':'Camión', 'DOHInicial':'DOH Inicial', 'DOHFinal':'DOH Final', 'AjustePallet':'Compra Final S/.', 'VolumenFinal':'Volumen Final', 'NCajasPicking':'Cajas Picking'}).to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1], self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1]+NAME_REPORT_BRANCHS))
     def save_error(self, errors):
         errors.to_excel(NAME_REPORT_ERROR)
