@@ -8,7 +8,8 @@ from modules.params import(
     NAME_DF_DATA_CLIENT,
     NAME_DF_SKU_DATA,
     NAME_DF_DATA_WEIGHT_VOLUME,
-    NAME_DF_DATA_CMI
+    NAME_DF_DATA_CMI,
+    NAME_DF_DATA_MOQ
 )
 class Inputs:
     def __init__(self) -> None:
@@ -38,6 +39,7 @@ class Inputs:
         self.df_weight_volume = pd.read_excel(NAME_DF_DATA_WEIGHT_VOLUME)
         self.df_weight_volume['Volumen']=self.df_weight_volume['Volumen'].apply(lambda x:round(x,2))
         self.df_cmi = pd.read_excel(NAME_DF_DATA_CMI)
+        self.df_moq = pd.read_excel(NAME_DF_DATA_MOQ)
     def getDirectories(self):
         return self._ficheros
     def getNumberOption(self):

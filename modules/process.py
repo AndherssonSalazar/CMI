@@ -16,37 +16,42 @@ class Process:
         self.__branchs["Ruta"], self.__branchs["Volumen"], self.__branchs["Peso"], self.__branchs["DiferenciaVolumen"], self.__branchs["DiferenciaPeso"], self.__branchs["VolumenAumentado"], self.__branchs["PesoAumentado"], self.__branchs["Camion"], self.__branchs["DOHInicial"], self.__branchs["DOHFinal"], self.__branchs["CompraFinal"], self.__branchs["VolumenFinal"], self.__branchs["NCajasPicking"] = ['', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, '', 0.0, 0.0, 0.0, 0.0, 0.0]
         print('==>[INFO] Obteniendo Peso y volumen Total por Ean y sucursal')
         self._volume_weight_x_ean(self.__df_export_order, self.__branchs, inputs.df_weight_volume)
-        print('==>[INFO] Consolidando rutas')
-        self.__branchs_consolidation=copy.deepcopy(self.__branchs).rename (columns = {'Sucursal':'Consolidado'})
-        self.__branchs_consolidation=self._consolidation_routes(self.__branchs_consolidation, inputs.df_cmi)
-        print('==>[INFO] Asignando camiones mas optimos')
-        self.__branchs_consolidation=self._verify_match_truck(self.__branchs_consolidation, inputs.df_truck)
-        print('==>[INFO] Asignando la diferencia(volumen, peso) faltante a cada sucursal')
-        self._assign_weight_volume_difference_to_branch(self.__branchs, self.__branchs_consolidation)
-        print('==>[INFO] Match data cliente')
-        self._match_data_client(self.__branchs, inputs.df_client)
-        print('==>[INFO] Match SKU Data')
-        self._amarre_x_ean(self.__df_export_order, inputs.df_sku_data)
-        if self.__errores is not None:
-            report = Report(None)
-            report.save_error(self.__errores)
-            raise ValueError("[Error]======Revisar el Reporte de Errores ======[Error]")
-        print('==>[INFO] Agrupar Disponible')
-        self.__list_availables=self._group_available(self.__df_export_order)
-        print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible')
-        #self.__df_export_order = self._order_by_branch_coment_cod_price_volume_weight(self.__df_export_order)
-        for i in range(len(self.__list_availables)):
-            self.__list_availables[i]=self._order_by_cod_price_volume_weight(self.__list_availables[i])
-        print('==>[INFO] Asignando o quitando volumen para camiones optimos')
-        for i in range(len(self.__list_availables)):
-            print('==>==>[INFO] Asignando o restando volumen a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
-            self._assigning_volume_weigth_remaining(self.__df_export_order, self.__list_availables[i], self.__branchs)
-        print('==>[INFO] Rutas y Camiones a la sucursal')
-        self._fill_route_truck_branch(self.__branchs, self.__branchs_consolidation)
-        print('==>[INFO] Llenado de data producto')
-        self._fill_data_product(self.__df_export_order)
-        print('==>[INFO] Llenado de data reporte Sucursal')
-        self._fill_data_branch(self.__df_export_order, self.__branchs)
+        if self._inputs.getDirectories()[self._inputs.getNumberOption()-1].upper()=="VEGA":
+            self.__ayudin=self._get_ayudin(self.__df_export_order)
+            self.__ayudin=self._get_otros(self.__df_export_order)
+            raise ValueError("[ERROR] Ayudin procesado a granel, falta el proceso para otros a pallet")
+        else:
+            print('==>[INFO] Consolidando rutas')
+            self.__branchs_consolidation=copy.deepcopy(self.__branchs).rename (columns = {'Sucursal':'Consolidado'})
+            self.__branchs_consolidation=self._consolidation_routes(self.__branchs_consolidation, inputs.df_cmi)
+            print('==>[INFO] Asignando camiones mas optimos')
+            self.__branchs_consolidation=self._verify_match_truck(self.__branchs_consolidation, inputs.df_truck)
+            print('==>[INFO] Asignando la diferencia(volumen, peso) faltante a cada sucursal')
+            self._assign_weight_volume_difference_to_branch(self.__branchs, self.__branchs_consolidation)
+            print('==>[INFO] Match data cliente')
+            self._match_data_client(self.__branchs, inputs.df_client)
+            print('==>[INFO] Match SKU Data')
+            self._amarre_x_ean(self.__df_export_order, inputs.df_sku_data)
+            if self.__errores is not None:
+                report = Report(None)
+                report.save_error(self.__errores)
+                raise ValueError("[Error]======Revisar el Reporte de Errores ======[Error]")
+            print('==>[INFO] Agrupar Disponible')
+            self.__list_availables=self._group_available(self.__df_export_order)
+            print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible')
+            #self.__df_export_order = self._order_by_branch_coment_cod_price_volume_weight(self.__df_export_order)
+            for i in range(len(self.__list_availables)):
+                self.__list_availables[i]=self._order_by_cod_price_volume_weight(self.__list_availables[i])
+            print('==>[INFO] Asignando o quitando volumen para camiones optimos')
+            for i in range(len(self.__list_availables)):
+                print('==>==>[INFO] Asignando o restando volumen a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
+                self._assigning_volume_weigth_remaining(self.__df_export_order, self.__list_availables[i], self.__branchs)
+            print('==>[INFO] Rutas y Camiones a la sucursal')
+            self._fill_route_truck_branch(self.__branchs, self.__branchs_consolidation)
+            print('==>[INFO] Llenado de data producto')
+            self._fill_data_product(self.__df_export_order)
+            print('==>[INFO] Llenado de data reporte Sucursal')
+            self._fill_data_branch(self.__df_export_order, self.__branchs)
         print('==>[INFO] Limpiar Campos Innecesarios')
         self._delete_unnecesary_fields()
     def getInputs(self):
@@ -128,7 +133,7 @@ class Process:
             ErroresEANS.loc[:,'Comentario'] = 'Sin Amarre'
             self.__errores= pd.concat([self.__errores, ErroresEANS], ignore_index = True)
     def _consolidation_routes(self, branchs, routes):
-        can_consolidate=pd.DataFrame(routes.iloc[16:])[['CMI REPLENISHMENT MODEL','Unnamed: 1','Unnamed: 2']].rename(columns = {'CMI REPLENISHMENT MODEL':'Sucursal', 'Unnamed: 1':'Ruta', 'Unnamed: 2':'TipoCamion'})
+        can_consolidate=pd.DataFrame(routes.iloc[21:])[['CMI REPLENISHMENT MODEL','Unnamed: 1','Unnamed: 2']].rename(columns = {'CMI REPLENISHMENT MODEL':'Sucursal', 'Unnamed: 1':'Ruta', 'Unnamed: 2':'TipoCamion'})
         for co in can_consolidate.itertuples(index=True, name='Pandas'):
             can_consolidate.loc[co.Index, 'Sucursal']=co.Sucursal.replace("Dijisa ", '').replace("AGA ", '').replace("Moran ", '').replace("Digumisac ", '').replace("DEL PRADO - ", '').upper()
         group_routes=can_consolidate.groupby('Ruta')
@@ -359,6 +364,11 @@ class Process:
             if product.NCajasAumentarCeil==0.0:
                 df.loc[product.Index, 'AjustePallet']=product._9
                 df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*product._9
+            ppallet=df['AjustePallet'][product.Index]/product.Amarre
+            if ppallet<1.0:
+                df.loc[product.Index, 'NCajasPicking']=ppallet*product.Amarre
+            else:
+                df.loc[product.Index, 'NCajasPicking']=(ppallet-math.floor(ppallet))*product.Amarre
     def _fill_data_branch(self, df, branchs):
         # product._11 = "PRECIO GIV"
         # product._12 = "Venta Mensual con factor"
@@ -383,6 +393,27 @@ class Process:
             branchs.loc[branch.Index, 'DOHFinal']=sumaInventarioAjuste*30/sumaVentaMensualFactor
             branchs.loc[branch.Index, 'CompraFinal']=compraFinal
             branchs.loc[branch.Index, 'VolumenFinal']=branch.Volumen+branch.VolumenAumentado
+    def _get_ayudin(self, df):
+        ayudines=None
+        """for product in df.itertuples(index=True, name='PandasProducts'):
+            if product.:
+                branchs_consolidation=pd.DataFrame({'Consolidado': [names_co],
+                         'Cantidad': amount_co,
+                         'Volumen': volume_co,
+                         'Peso': peso_co,
+                         'TipoCamion':tipo_co,
+                         'Ruta':ruta})
+            else:
+                branchs_consolidation = pd.concat([branchs_consolidation, pd.DataFrame({'Consolidado': [names_co],
+                             'Cantidad': amount_co,
+                             'Volumen': volume_co,
+                             'Peso': peso_co,
+                             'TipoCamion':tipo_co,
+                             'Ruta':ruta})], ignore_index = True)"""
+        return ayudines
+    def _get_otros(self, df):
+        otros=None
+        return otros
     def _delete_unnecesary_fields(self):
         del self.__branchs['Cantidad']
         #del self.__branchs['DOH']

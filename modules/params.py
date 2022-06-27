@@ -9,6 +9,7 @@ NAME_DF_DATA_CLIENT = os.path.join(NAME_FOLDER_INPUTS,'Master Data Cliente.xlsx'
 NAME_DF_SKU_DATA = os.path.join(NAME_FOLDER_INPUTS,'SKU Data.xlsx')
 NAME_DF_DATA_WEIGHT_VOLUME = os.path.join(NAME_FOLDER_INPUTS,'Volumen y Peso.xlsx')
 NAME_DF_DATA_CMI = os.path.join(NAME_FOLDER_INPUTS,'CMI Tool.xlsx')
+NAME_DF_DATA_MOQ = os.path.join(NAME_FOLDER_INPUTS,'MOQ Grupo Vega.xlsx')
 NAME_REPORT_BRANCHS='_Sucursales Data(Report).xlsx'
 NAME_REPORT_ERROR=os.path.join(NAME_FOLDER_REPORT,'ERRORES.xlsx')
 # ====

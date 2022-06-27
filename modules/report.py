@@ -17,7 +17,7 @@ class Report:
        'props': [('background-color', '#add8e6')]
        }])
     def save_report(self):
-        self.process.get_data().rename (columns = {'AjustePallet':'Compra Final', 'VolumenFinalTotal':'Volumen Final', 'NCajasPicking':'Picking'}).to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1],'Formato_2.11_'+self.process.getInputs()._ficheros[self.process.getInputs().getNumberOption()-1]+'_export.xlsx'))
+        self.process.get_data().rename (columns = {'AjustePallet':'Compra Final', 'VolumenFinalTotal':'Volumen Final', 'NCajasPicking':'Picking'}).to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1],'Formato_2.11_'+self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1]+'_export.xlsx'))
         self.process.get_branchs_data().rename (columns = {'Volumen':'Volumen Inicial', 'VolumenAumentado':'Ajuste Volumen', 'Camion':'Camión', 'DOHInicial':'DOH Inicial', 'DOHFinal':'DOH Final', 'AjustePallet':'Compra Final S/.', 'VolumenFinal':'Volumen Final', 'NCajasPicking':'Cajas Picking'}).to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1], self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1]+NAME_REPORT_BRANCHS))
     def save_error(self, errors):
         errors.to_excel(NAME_REPORT_ERROR)
