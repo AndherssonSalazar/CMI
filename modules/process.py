@@ -1,4 +1,4 @@
-from numpy import true_divide
+from numpy import NaN, true_divide
 from .inputs import Inputs
 from .report import Report
 import pandas as pd
@@ -36,14 +36,13 @@ class Process:
             self._match_truck(self.__branchs, inputs.df_truck, True)
             print('==>[INFO] Separando Home Care y Otros')
             self.__home_care=self._get_home_care(self.__df_export_order)
-            print(self.__home_care["Volumen"])
             self.__others=self._get_others(self.__df_export_order)
             print('==>[INFO] procesando data Home Care')
             self._process_data_vega(self.__df_export_order, self.__home_care, self.__branchs)
             print('==>[INFO] procesando data Home Care')
             self._process_data_vega(self.__df_export_order, self.__others, self.__branchs)
         else:
-            self.__df_export_order["Volumen"], self.__df_export_order["Amarre"], self.__df_export_order["VolumenAjustado"], self.__df_export_order["NCajasAumentar"], self.__df_export_order["NCajasAumentarCeil"], self.__df_export_order["VolumenAumentarDisminuir"], self.__df_export_order["FinalPurchaseFinal"], self.__df_export_order["VolumenFinal"], self.__df_export_order["PorcentajePallet"], self.__df_export_order["AjustePallet"], self.__df_export_order["VolumenFinalTotal"], self.__df_export_order["NCajasPicking"]=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            self.__df_export_order["Volumen"], self.__df_export_order["Amarre"], self.__df_export_order["VolumenAjustado"], self.__df_export_order["NCajasAumentar"], self.__df_export_order["NCajasAumentarCeil"], self.__df_export_order["VolumenAumentarDisminuir"], self.__df_export_order["FinalPurchaseFinal"], self.__df_export_order["VolumenFinal"], self.__df_export_order["PorcentajePallet"], self.__df_export_order["AjustePallet"], self.__df_export_order["VolumenFinalTotal"], self.__df_export_order["NCajasPicking"]=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             print('==>[INFO] Obteniendo Peso y volumen Total por Ean y sucursal')
             self._volume_weight_x_ean(self.__df_export_order, self.__branchs, inputs.df_weight_volume)
             print('==>[INFO] Consolidando rutas')
@@ -520,6 +519,7 @@ class Process:
         # product._12 = "Final Purchase"
         # product._14 = "ABC XYZ"
         totalSumVol=self._getTotalVolumenVega(group_df)
+        if totalSumVol==0.0: return
         for product in group_df.itertuples(index=True, name='PandasProducts'):
             #if product._16=='CX' or product._16=='CY' or product._16=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
             if product._14=='CX' or product._14=='CY' or product._14=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
@@ -537,8 +537,13 @@ class Process:
                         VolumenMOQ = product.Volumen*product.Amarre
                     elif product.MOQ=="CAMAS":
                         VolumenMOQ = product.Volumen*product.AmarreCama
+                    else:
+                        continue
                     NumeroMOQs=Ajuste*VolumenMOQ
-                    NumeroMOQCeil=round(VolumenMOQ)
+                    try:
+                        NumeroMOQCeil=round(VolumenMOQ)
+                    except Exception as e:
+                        continue
                     MOQAjustadoFinal=NumeroMOQCeil*VolumenMOQ
                     NCajasAumentar=MOQAjustadoFinal/product.Volumen
                     if MOQAjustadoFinal<product.Volumen*product._12:
@@ -566,13 +571,13 @@ class Process:
         return False
     def _getTotalVolumenVega(self, df_group):
         sumVol=0.0
-        for product in df_group.itertuples(index=True, name='PandasProductsTotal'):
+        for prod in df_group.itertuples(index=True, name='PandasProductsTotal'):
             #if product._16=='CX' or product._16=='CY' or product._16=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
-            if product._14=='CX' or product._14=='CY' or product._14=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
-            if product.MOQ.upper()=="PALLET":
-                sumVol+= product.Volumen*product.Amarre
-            elif product.MOQ.upper()=="CAMAS":
-                sumVol+= product.Volumen*product.AmarreCama
+            if prod._14=='CX' or prod._14=='CY' or prod._14=='CZ' or prod.Volumen==0 or prod.Comentario=='DESCONTINUADO': continue
+            if prod.MOQ.upper()=="PALLET":
+                sumVol+= prod.Volumen*prod.Amarre
+            elif prod.MOQ.upper()=="CAMAS":
+                sumVol+= prod.Volumen*prod.AmarreCama
         return sumVol
     def _delete_unnecesary_fields(self):
         if not self.is_automatic() and self._inputs._numberOption==4:
