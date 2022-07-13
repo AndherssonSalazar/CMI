@@ -158,8 +158,18 @@ class Process:
             self.__errores= pd.concat([self.__errores, ErroresEANS], ignore_index = True)
     def _consolidation_routes(self, branchs, routes):
         can_consolidate=pd.DataFrame(routes.iloc[21:])[['CMI REPLENISHMENT MODEL','Unnamed: 1','Unnamed: 2']].rename(columns = {'CMI REPLENISHMENT MODEL':'Sucursal', 'Unnamed: 1':'Ruta', 'Unnamed: 2':'TipoCamion'})
+        can_consolidate=can_consolidate.reset_index()
+        ind=-1
         for co in can_consolidate.itertuples(index=True, name='Pandas'):
+            if type(co.Sucursal)!=str:
+                ind=co.Index
+                break
             can_consolidate.loc[co.Index, 'Sucursal']=co.Sucursal.replace("Dijisa ", '').replace("AGA ", '').replace("Moran ", '').replace("Digumisac ", '').replace("DEL PRADO - ", '').upper()
+        if ind!=-1:
+            numberRows=len(can_consolidate)-ind
+            for i in range(numberRows):
+                can_consolidate=can_consolidate.drop(ind)
+                ind+=1
         group_routes=can_consolidate.groupby('Ruta')
         group_routes=pd.DataFrame(group_routes.size().reset_index(name = "Grupos"))
         branchs_consolidation=None
