@@ -126,13 +126,20 @@ class Process:
             self._volume_weight_x_branch(eans, branchs)
     def _volume_weight_x_branch(self, eans, branchs):
         # ean._9 = "Final Purchase"
+        FinalPurchaseNaN=[]
         eansTemp=eans.rename(columns = {'Final Purchase':'FinalPurchase'})
         for ean in eansTemp.itertuples(index=True, name='PandasEANS'):
             if ean.Comentario=='DESCONTINUADO': continue
             for bran in branchs.itertuples(index=True, name='PandasSucursales'):
                 if ean.Sucursal.upper()==bran.Sucursal.upper():
+                    if ean.FinalPurchase!=ean.FinalPurchase:
+                        FinalPurchaseNaN.append({"EAN":ean.EAN, "Descripcion":ean.Descripción})
                     branchs.loc[bran.Index, 'Volumen'] += ean.Volumen * ean.FinalPurchase
                     break
+        if len(FinalPurchaseNaN)>0:
+            ErroresEANSVolu = pd.DataFrame(FinalPurchaseNaN)
+            ErroresEANSVolu.loc[:,'Comentario'] = 'Final Purchase Desconocido'
+            self.__errores= pd.concat([self.__errores, ErroresEANSVolu], ignore_index = True)
     def _amarre_x_ean(self, df, skus):
         # sk._6 = "Amarre Camas"
         skusTemp=skus.rename(columns = {'AMARRE CAMAS':'AMARRECAMAS'})
@@ -306,11 +313,6 @@ class Process:
                 elif product.Sucursal.upper()==branch.Sucursal.upper():
                     VolumenAjustado=((product.FinalPurchase*product.Volumen)/totalSumVol)*branch.DiferenciaVolumen
                     NCajasAumentar=VolumenAjustado/product.Volumen
-                    if NCajasAumentar!=NCajasAumentar:
-                        print(product)
-                        print(branch)
-                        print('--------')
-                        continue
                     if round(NCajasAumentar)==0: break
                     NCajasAumentarCeil=0
                     VolumenAumentarDisminuir=0.0
@@ -412,11 +414,6 @@ class Process:
             if ppallet<1.0:
                 df.loc[product.Index, 'NCajasPicking']=ppallet*product.Amarre
             else:
-                if ppallet!=ppallet:
-                    print(product)
-                    print(df['AjustePallet'][product.Index])
-                    print(product.Amarre)
-                    print("---------------")
                 df.loc[product.Index, 'NCajasPicking']=(ppallet-math.floor(ppallet))*product.Amarre
     def _fill_data_branch(self, df, branchs):
         # product._11 = "PRECIO GIV"
