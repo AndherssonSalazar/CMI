@@ -624,13 +624,13 @@ class Process:
             del self.__branchs['PickingMenos']
             #Eliminar para reporte General
             #del self.__df_export_order['Volumen']
-            """del self.__df_export_order['VolumenAjustado']
+            del self.__df_export_order['VolumenAjustado']
             del self.__df_export_order['NCajasAumentar']
             del self.__df_export_order['NCajasAumentarCeil']
             del self.__df_export_order['VolumenAumentarDisminuir']
             del self.__df_export_order['FinalPurchaseFinal']
             del self.__df_export_order['VolumenFinal']
-            del self.__df_export_order['PorcentajePallet']"""
+            del self.__df_export_order['PorcentajePallet']
     def get_data(self):
         return self.__df_export_order
     def get_branchs_data(self):
