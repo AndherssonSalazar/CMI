@@ -17,7 +17,7 @@ class Process:
         if not self.is_automatic() and self._inputs._numberOption==4:
             self.__df_export_order["Volumen"], self.__df_export_order["MOQ"], self.__df_export_order["Amarre"], self.__df_export_order["AmarreCama"], self.__df_export_order["VolumenMOQ"], self.__df_export_order["Ajuste"], self.__df_export_order["NumeroMOQs"], self.__df_export_order["NumeroMOQCeil"], self.__df_export_order["MOQAjustadoFinal"], self.__df_export_order["NCajasAumentar"]=[0.0, "", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0]
             print('==>[INFO] Obteniendo Peso y volumen Total por Ean')
-            self._volume_weight_x_ean(self.__df_export_order, None, inputs.df_weight_volume)
+            self._volume_x_ean(self.__df_export_order, None, inputs.df_weight_volume)
             print('==>[INFO] Obteniendo Peso y volumen Total por Sucursal')
             self.__branchs_other=copy.deepcopy(self.__branchs)
             self.__branchs['Sucursal']=self.__branchs['Sucursal'].apply(lambda x:x+" - Home Care")
@@ -44,14 +44,14 @@ class Process:
         else:
             self.__df_export_order["Volumen"], self.__df_export_order["Amarre"], self.__df_export_order["VolumenAjustado"], self.__df_export_order["NCajasAumentar"], self.__df_export_order["NCajasAumentarCeil"], self.__df_export_order["VolumenAumentarDisminuir"], self.__df_export_order["FinalPurchaseFinal"], self.__df_export_order["VolumenFinal"], self.__df_export_order["PorcentajePallet"], self.__df_export_order["AjustePallet"], self.__df_export_order["VolumenFinalTotal"], self.__df_export_order["NCajasPicking"]=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             print('==>[INFO] Obteniendo Peso y volumen Total por Ean y sucursal')
-            self._volume_weight_x_ean(self.__df_export_order, self.__branchs, inputs.df_weight_volume)
+            self._volume_x_ean(self.__df_export_order, self.__branchs, inputs.df_weight_volume)
             print('==>[INFO] Consolidando rutas')
             self.__branchs_consolidation=copy.deepcopy(self.__branchs).rename (columns = {'Sucursal':'Consolidado'})
             self.__branchs_consolidation=self._consolidation_routes(self.__branchs_consolidation, inputs.df_cmi)
             print('==>[INFO] Asignando camiones mas optimos')
             self.__branchs_consolidation=self._verify_match_truck(self.__branchs_consolidation, inputs.df_truck)
             print('==>[INFO] Asignando la diferencia de volumen faltante a cada sucursal')
-            self._assign_weight_volume_difference_to_branch(self.__branchs, self.__branchs_consolidation)
+            self._assign_volume_difference_to_branch(self.__branchs, self.__branchs_consolidation)
             print('==>[INFO] Match data cliente')
             self._match_data_client(self.__branchs, inputs.df_client)
             print('==>[INFO] Obteniendo Amarre por Ean')
@@ -86,7 +86,7 @@ class Process:
         return df.sort_values(by=['ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, False, False])
     def _order_by_branch_coment_cod_price_volume_weight(self, df):
         return df.sort_values(by=['Sucursal', 'Comentario', 'ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, True, True, False, False])
-    def _volume_weight_x_ean(self, eans, branchs, volumes):
+    def _volume_x_ean(self, eans, branchs, volumes):
         sinVolumenPeso=[]
         volumenCero=[]
         for ean in eans.itertuples(index=True, name='PandasEANS'):
@@ -95,7 +95,7 @@ class Process:
             for vol in volumes.itertuples(index=True, name='PandasVolPes'):
                 if ean.EAN==vol.EAN:
                     encontrado=True
-                    if vol.Volumen==0.0:
+                    if vol.Volumen<=0.0 or vol.Volumen!=vol.Volumen:
                         exist=False
                         for i in range(len(volumenCero)):
                             if volumenCero[i]["EAN"]==ean.EAN:
@@ -120,7 +120,7 @@ class Process:
             self.__errores=ErroresEANSVol
         if len(volumenCero)>0:
             ErroresEANSVolu = pd.DataFrame(volumenCero)
-            ErroresEANSVolu.loc[:,'Comentario'] = 'Volumen de EAN "no Descontinuado" no puede ser igual a cero'
+            ErroresEANSVolu.loc[:,'Comentario'] = 'Volumen de EAN "no Descontinuado" no puede ser igual o menor que cero'
             self.__errores= pd.concat([self.__errores, ErroresEANSVolu], ignore_index = True)
         if branchs is not None:
             self._volume_weight_x_branch(eans, branchs)
@@ -130,19 +130,30 @@ class Process:
         for ean in eansTemp.itertuples(index=True, name='PandasEANS'):
             if ean.Comentario=='DESCONTINUADO': continue
             for bran in branchs.itertuples(index=True, name='PandasSucursales'):
-                if ean.Sucursal==bran.Sucursal:
+                if ean.Sucursal.upper()==bran.Sucursal.upper():
                     branchs.loc[bran.Index, 'Volumen'] += ean.Volumen * ean.FinalPurchase
                     break
     def _amarre_x_ean(self, df, skus):
+        # sk._6 = "Amarre Camas"
+        skusTemp=skus.rename(columns = {'AMARRE CAMAS':'AMARRECAMAS'})
         sinAmarre=[]
         for ean in df.itertuples(index=True, name='PandasEANS'):
             encontrado=False
             if ean.Comentario=='DESCONTINUADO': continue
-            for sk in skus.itertuples(index=True, name='PandasSKUS'):
+            for sk in skusTemp.itertuples(index=True, name='PandasSKUS'):
                 if ean.EAN==sk.EAN:
                     encontrado=True
-                    df.loc[ean.Index, 'Amarre'] = sk.AMARRE
-                    df.loc[ean.Index, 'AmarreCama']=sk._6
+                    if sk.AMARRE<=0.0 or sk.AMARRE!=sk.AMARRE or sk.AMARRECAMAS<=0.0 or sk.AMARRECAMAS!=sk.AMARRECAMAS:
+                        exist=False
+                        for i in range(len(sinAmarre)):
+                            if sinAmarre[i]["EAN"]==ean.EAN:
+                                exist=True
+                                break
+                        if not exist:
+                            sinAmarre.append({"EAN":ean.EAN, "Descripcion":ean.Descripción})
+                    else:
+                        df.loc[ean.Index, 'Amarre'] = sk.AMARRE
+                        df.loc[ean.Index, 'AmarreCama']=sk.AMARRECAMAS
                     break
             if not encontrado:
                 #df.loc[ean.Index, 'Amarre'] = 1
@@ -165,7 +176,6 @@ class Process:
             if type(co.Sucursal)!=str:
                 ind=co.Index
                 break
-            can_consolidate.loc[co.Index, 'Sucursal']=co.Sucursal.replace("Dijisa ", '').replace("AGA ", '').replace("Moran ", '').replace("Digumisac ", '').replace("DEL PRADO - ", '').upper()
         if ind!=-1:
             numberRows=len(can_consolidate)-ind
             for i in range(numberRows):
@@ -180,12 +190,15 @@ class Process:
             volume_co=0.0
             tipo_co=0
             ruta=gr.Ruta
-            for co in can_consolidate.itertuples(index=True, name='PandasBranchs'):
+            for co in can_consolidate.itertuples(index=True, name='PandasConsolidates'):
                 if gr.Ruta==co.Ruta:
-                    names_co.append(''+co.Sucursal)
-                    amount_co +=branchs['Cantidad'][branchs[branchs['Consolidado'] == co.Sucursal].index.values[0]]
-                    volume_co +=branchs['Volumen'][branchs[branchs['Consolidado'] == co.Sucursal].index.values[0]]
-                    tipo_co=co.TipoCamion
+                    for bra in branchs.itertuples(index=True, name='PandasBranchs'):
+                        if co.Sucursal.upper()==bra.Consolidado.upper():
+                            names_co.append(''+co.Sucursal)
+                            amount_co +=bra.Cantidad
+                            volume_co +=bra.Volumen
+                            tipo_co=co.TipoCamion
+                            break
             if branchs_consolidation is None:
                 branchs_consolidation=pd.DataFrame({'Consolidado': [names_co],
                          'Cantidad': amount_co,
@@ -206,7 +219,7 @@ class Process:
     def _exists_in_consolidate(self, name, branchs_consolidation):
         for branchs in branchs_consolidation['Consolidado']:
             for name_branch in branchs:
-                if name==name_branch:
+                if name.upper()==name_branch.upper():
                     return True
         return False
     def _verify_match_truck(self, consolidation, trucks):
@@ -257,22 +270,20 @@ class Process:
         else:
             error_value="[Error]====== Solo se acepta estos 3 valores 1:NO LTL, 2:NO LTL-PE21, 3 Ambos ======[Error]"
             raise ValueError(error_value)
-    def _assign_weight_volume_difference_to_branch(self, branchs, branchs_consolidation):
+    def _assign_volume_difference_to_branch(self, branchs, branchs_consolidation):
         for consolidation in branchs_consolidation.itertuples(index=True, name='PandasConsolidation'):
             list_names=consolidation.Consolidado
             for name in list_names:
                 for branch in branchs.itertuples(index=True, name='PandasBranch'):
-                    if branch.Sucursal==name:
+                    if branch.Sucursal.upper()==name.upper():
                         branchs.loc[branch.Index, 'DiferenciaVolumen']=branch.Volumen/consolidation.Volumen*consolidation.DiferenciaVolumen
     def _match_data_client(self, branchs, data_client):
         # client._11 = "% Picking +"
         # client._12 = "% Picking -"
         data_clientTemp=data_client.rename(columns = {'% Picking +':'PickingMas', '% Picking -':'PickingMenos'})
         for client in data_clientTemp.itertuples(index=True, name='PandasClient'):
-            data_clientTemp.loc[client.Index, 'Sucursal']=client.Sucursal.replace("Dijisa ", '').replace("AGA ", '').replace("Moran ", '').replace("Digumisac ", '').replace("DEL PRADO - ", '').upper()
-        for client in data_clientTemp.itertuples(index=True, name='PandasClient'):
             for bran in branchs.itertuples(index=True, name='PandasBranchs'):
-                if bran.Sucursal==client.Sucursal:
+                if bran.Sucursal.upper()==client.Sucursal.upper():
                     branchs.loc[bran.Index, 'PickingMas']=client.PickingMas
                     branchs.loc[bran.Index, 'PickingMenos']=client.PickingMenos
     def _group_available(self, df):
@@ -292,9 +303,14 @@ class Process:
             for branch in branchs.itertuples(index=True, name='PandasBranchs'):
                 if branch.DiferenciaVolumen==0.0: continue
                 elif (branch.DiferenciaVolumen - branch.VolumenAumentado)==0.0: continue
-                elif product.Sucursal==branch.Sucursal:
+                elif product.Sucursal.upper()==branch.Sucursal.upper():
                     VolumenAjustado=((product.FinalPurchase*product.Volumen)/totalSumVol)*branch.DiferenciaVolumen
                     NCajasAumentar=VolumenAjustado/product.Volumen
+                    if NCajasAumentar!=NCajasAumentar:
+                        print(product)
+                        print(branch)
+                        print('--------')
+                        continue
                     if round(NCajasAumentar)==0: break
                     NCajasAumentarCeil=0
                     VolumenAumentarDisminuir=0.0
@@ -381,7 +397,7 @@ class Process:
             list_names=consolidation.Consolidado
             for name in list_names:
                 for branch in branchs.itertuples(index=True, name='PandasBranch'):
-                    if branch.Sucursal==name:
+                    if branch.Sucursal.upper()==name.upper():
                         branchs.loc[branch.Index, 'Ruta']=consolidation.Ruta
                         branchs.loc[branch.Index, 'Camion']=consolidation.Camion
     def _fill_data_product(self, df):
@@ -396,6 +412,11 @@ class Process:
             if ppallet<1.0:
                 df.loc[product.Index, 'NCajasPicking']=ppallet*product.Amarre
             else:
+                if ppallet!=ppallet:
+                    print(product)
+                    print(df['AjustePallet'][product.Index])
+                    print(product.Amarre)
+                    print("---------------")
                 df.loc[product.Index, 'NCajasPicking']=(ppallet-math.floor(ppallet))*product.Amarre
     def _fill_data_branch(self, df, branchs):
         # product._11 = "PRECIO GIV"
@@ -410,7 +431,7 @@ class Process:
             sumaInventarioAjuste=0.0
             compraFinal=0.0
             for product in dfTemp.itertuples(index=True, name='PandasProducts'):
-                if product.Sucursal==branch.Sucursal:
+                if product.Sucursal.upper()==branch.Sucursal.upper():
                     sumaPicking+=product.NCajasPicking
                     sumaFinalPurchase+=product.AjustePallet
                     sumaInventario+=product.Inventario
