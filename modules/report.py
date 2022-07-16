@@ -15,15 +15,13 @@ from modules.params import (
 class Report:
     def __init__(self, process) -> None:
         self.process = process
-    def _header_style(self, df):
-        return df.style.set_table_styles([{
-       'selector': 'th',
-       'props': [('background-color', '#add8e6')]
-       }])
     def _renameColumnsData(self):
-        return self.process.get_data().rename(columns = {'AjustePallet':'Compra Final', 'VolumenFinalTotal':'Volumen Final', 'NCajasPicking':'Picking'})
+        if not self.process.is_automatic() and self.process.getInputs().getNumberOption()==4:
+            return self.process.get_data()
+        else:
+            return self.process.get_data().rename(columns = {'AjustePallet':'Compra Final', 'VolumenFinalTotal':'Volumen Final', 'NCajasPicking':'Picking'})
     def _renameColumnsBranch(self):
-        return self.process.get_branchs_data().rename (columns = {'Volumen':'Volumen Inicial', 'VolumenAumentado':'Ajuste Volumen', 'Camion':'Camión', 'DOHInicial':'DOH Inicial', 'DOHFinal':'DOH Final', 'CompraFinal':'Compra Final S/.', 'VolumenFinal':'Volumen Final', 'NCajasPicking':'Cajas Picking'})
+        return self.process.get_branchs_data().rename (columns = {'DiferenciaVolumen':'Diferencia de Volumen', 'Volumen':'Volumen Inicial', 'VolumenAumentado':'Ajuste Volumen', 'Camion':'Camión', 'DOHInicial':'DOH Inicial', 'DOHFinal':'DOH Final', 'CompraFinal':'Compra Final S/.', 'VolumenFinal':'Volumen Final', 'NCajasPicking':'Cajas Picking'})
     def save_report(self):
         if self.process.is_automatic():
             self._renameColumnsData().to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1],'Formato_2.11_'+self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1]+'_export.xlsx'))

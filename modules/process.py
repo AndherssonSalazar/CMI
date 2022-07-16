@@ -15,25 +15,25 @@ class Process:
         self.__branchs=pd.DataFrame(self.__branchs.size().reset_index(name = "Cantidad"))
         self.__branchs["Ruta"], self.__branchs["Volumen"], self.__branchs["DiferenciaVolumen"], self.__branchs["VolumenAumentado"], self.__branchs["Camion"], self.__branchs["DOHInicial"], self.__branchs["DOHFinal"], self.__branchs["CompraFinal"], self.__branchs["VolumenFinal"], self.__branchs["NCajasPicking"] = ['', 0.0, 0.0, 0.0, '', 0.0, 0.0, 0.0, 0.0, 0.0]
         if not self.is_automatic() and self._inputs._numberOption==4:
-            self.__df_export_order["Volumen"], self.__df_export_order["MOQ"], self.__df_export_order["Amarre"], self.__df_export_order["AmarreCama"], self.__df_export_order["VolumenMOQ"], self.__df_export_order["Ajuste"], self.__df_export_order["NumeroMOQs"], self.__df_export_order["NumeroMOQCeil"], self.__df_export_order["MOQAjustadoFinal"], self.__df_export_order["NCajasAumentar"]=[0.0, "", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0]
+            self.__df_export_order["Volumen"], self.__df_export_order["MOQ"], self.__df_export_order["Amarre"], self.__df_export_order["AmarreCama"], self.__df_export_order["VolumenMOQ"], self.__df_export_order["Ajuste"], self.__df_export_order["NumeroMOQs"], self.__df_export_order["NumeroMOQCeil"], self.__df_export_order["MOQAjustadoFinal"], self.__df_export_order["NCajasAumentar"], self.__df_export_order["CompraFinal"], self.__df_export_order["VolumenFinalTotal"]=[0.0, "", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0.0]
             print('==>[INFO] Obteniendo Peso y volumen Total por Ean')
             self._volume_x_ean(self.__df_export_order, None, inputs.df_weight_volume)
-            print('==>[INFO] Obteniendo Peso y volumen Total por Sucursal')
             self.__branchs_other=copy.deepcopy(self.__branchs)
             self.__branchs['Sucursal']=self.__branchs['Sucursal'].apply(lambda x:x+" - Home Care")
             self.__branchs_other['Sucursal']=self.__branchs_other['Sucursal'].apply(lambda x:x+" - Others")
             self.__branchs=pd.concat([self.__branchs, self.__branchs_other], ignore_index = True)
-            self._volume_weight_x_branch_vega(self.__df_export_order, self.__branchs)
+            print('==>[INFO] Obteniendo MOQ por Ean')
+            self._moq_x_ean(self.__df_export_order, inputs.df_moq)
+            print('==>[INFO] Obteniendo Peso y volumen Total por Sucursal')
+            self._volume_x_branch_vega(self.__df_export_order, self.__branchs)
             print('==>[INFO] Obteniendo Amarre por Ean')
             self._amarre_x_ean(self.__df_export_order, inputs.df_sku_data)
             if self.__errores is not None:
                 report = Report(None)
                 report.save_error(self.__errores)
                 raise ValueError("[Error]======Revisar el Reporte de Errores ======[Error]")
-            print('==>[INFO] Obteniendo MOQ por Ean')
-            self._moq_x_ean(self.__df_export_order, inputs.df_moq)
             print('==>[INFO] Asignando camiones mas optimos')
-            self._match_truck(self.__branchs, inputs.df_truck, True)
+            self._match_truck(self.__branchs, inputs.df_truck)
             print('==>[INFO] Separando Home Care y Otros')
             self.__home_care=self._get_home_care(self.__df_export_order)
             self.__others=self._get_others(self.__df_export_order)
@@ -41,6 +41,10 @@ class Process:
             self._process_data_vega(self.__df_export_order, self.__home_care, self.__branchs)
             print('==>[INFO] procesando data Home Care')
             self._process_data_vega(self.__df_export_order, self.__others, self.__branchs)
+            print('==>[INFO] Llenado de data producto')
+            self._fill_data_product_vega(self.__df_export_order)
+            print('==>[INFO] Llenado de data reporte Sucursal')
+            self._fill_data_branch_vega(self.__df_export_order, self.__branchs)
         else:
             self.__df_export_order["Volumen"], self.__df_export_order["Amarre"], self.__df_export_order["VolumenAjustado"], self.__df_export_order["NCajasAumentar"], self.__df_export_order["NCajasAumentarCeil"], self.__df_export_order["VolumenAumentarDisminuir"], self.__df_export_order["FinalPurchaseFinal"], self.__df_export_order["VolumenFinal"], self.__df_export_order["PorcentajePallet"], self.__df_export_order["AjustePallet"], self.__df_export_order["VolumenFinalTotal"], self.__df_export_order["NCajasPicking"]=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             print('==>[INFO] Obteniendo Peso y volumen Total por Ean y sucursal')
@@ -142,7 +146,7 @@ class Process:
             self.__errores= pd.concat([self.__errores, ErroresEANSVolu], ignore_index = True)
     def _amarre_x_ean(self, df, skus):
         # sk._6 = "Amarre Camas"
-        skusTemp=skus.rename(columns = {'AMARRE CAMAS':'AMARRECAMAS'})
+        skusTemp=skus.rename(columns = {'Amarre Camas':'AMARRECAMAS'})
         sinAmarre=[]
         for ean in df.itertuples(index=True, name='PandasEANS'):
             encontrado=False
@@ -233,31 +237,43 @@ class Process:
         trucks_order=(self._order_by(trucks,'Volumen Gramel', False)).rename (columns = {'Volumen Gramel':'Volumen', 'LTL?':'LTL'})
         for bran in consolidation.itertuples(index=True, name='PandasBranchs'):
             volumeDifference=float('inf')
-            for truck in trucks_order.itertuples(index=True, name='PandasTruck'):
-                if math.fabs(truck.Volumen-bran.Volumen)<math.fabs(volumeDifference) and self._verify_LTL(bran.TipoCamion, truck):
-                    list_trucks=[]
-                    list_trucks.append(truck.TIPO)
-                    consolidation.loc[bran.Index, 'Camion'] = str(list_trucks)
-                    consolidation.loc[bran.Index, 'DiferenciaVolumen']=truck.Volumen-bran.Volumen
-                    volumeDifference=truck.Volumen-bran.Volumen
-                for truck2 in trucks_order.itertuples(index=True, name='PandasTruck2'):
-                    if math.fabs(truck.Volumen+truck2.Volumen-bran.Volumen)<math.fabs(volumeDifference) and self._verify_LTL(bran.TipoCamion, truck) and self._verify_LTL(bran.TipoCamion, truck2):
-                        list_trucks=[]
-                        list_trucks.append(truck.TIPO)
-                        list_trucks.append(truck2.TIPO)
-                        consolidation.loc[bran.Index, 'Camion'] = str(list_trucks)
-                        consolidation.loc[bran.Index, 'DiferenciaVolumen']=truck.Volumen+truck2.Volumen-bran.Volumen
-                        volumeDifference=truck.Volumen+truck2.Volumen-bran.Volumen
-                    for truck3 in trucks_order.itertuples(index=True, name='PandasTruck2'):
-                        if math.fabs(truck.Volumen+truck2.Volumen+truck3.Volumen-bran.Volumen)<math.fabs(volumeDifference) and self._verify_LTL(bran.TipoCamion, truck) and self._verify_LTL(bran.TipoCamion, truck2) and self._verify_LTL(bran.TipoCamion, truck3):
-                            list_trucks=[]
-                            list_trucks.append(truck.TIPO)
-                            list_trucks.append(truck2.TIPO)
-                            list_trucks.append(truck3.TIPO)
-                            consolidation.loc[bran.Index, 'Camion'] = str(list_trucks)
-                            consolidation.loc[bran.Index, 'DiferenciaVolumen']=truck.Volumen+truck2.Volumen+truck3.Volumen-bran.Volumen
-                            volumeDifference=truck.Volumen+truck2.Volumen+truck3.Volumen-bran.Volumen
+            listTrucks=[]
+            volumeDifference=self._get_list_of_trucks(volumeDifference, listTrucks, trucks_order, bran)
+            list_trucks=[]
+            for i in range(len(listTrucks)):
+                list_trucks.append(listTrucks[i].TIPO)
+            consolidation.loc[bran.Index, 'Camion'] = str(list_trucks)
+            consolidation.loc[bran.Index, 'DiferenciaVolumen']=volumeDifference
         return consolidation
+    def _get_list_of_trucks(self, volumeDifference, listTrucks, trucks, branch):
+        accumulateVolume=0.0
+        listTrucksTemp=[]
+        volumeDifferenceTemp=volumeDifference
+        listTrucksTempChange=[]
+        volumeDifferenceTempChange=volumeDifference
+        for i in range(len(listTrucks)):
+            accumulateVolume+=listTrucks[i].Volumen
+            listTrucksTemp.append(listTrucks[i])
+            listTrucksTempChange.append(listTrucks[i])
+        for truck in trucks.itertuples(index=True, name='PandasTruck'):
+            if math.fabs(truck.Volumen+accumulateVolume-branch.Volumen)<math.fabs(volumeDifferenceTempChange) and self._verify_LTL(branch.TipoCamion, truck):
+                listTrucksTempChange.append(truck)
+                volumeDifferenceTempChange=truck.Volumen+accumulateVolume-branch.Volumen
+                volumeDifferenceTempChange=self._get_list_of_trucks(volumeDifferenceTempChange, listTrucksTempChange, trucks, branch)
+                if math.fabs(volumeDifferenceTempChange)<math.fabs(volumeDifferenceTemp):
+                    listTrucksTemp.clear()
+                    for i in range(len(listTrucksTempChange)):
+                        listTrucksTemp.append(listTrucksTempChange[i])
+                    volumeDifferenceTemp=volumeDifferenceTempChange
+                listTrucksTempChange.clear()
+                for i in range(len(listTrucks)):
+                    listTrucksTempChange.append(listTrucks[i])
+                volumeDifferenceTempChange=volumeDifference
+        listTrucks.clear()
+        for i in range(len(listTrucksTemp)):
+            listTrucks.append(listTrucksTemp[i])
+        volumeDifference=volumeDifferenceTemp
+        return volumeDifference
     def _verify_LTL(self, numero, truck):
         if numero==1:
             if truck.LTL=='No':
@@ -441,16 +457,33 @@ class Process:
             branchs.loc[branch.Index, 'CompraFinal']=compraFinal
             branchs.loc[branch.Index, 'VolumenFinal']=branch.Volumen+branch.VolumenAumentado
     #-------------Grupo Vega----------------
-    def _volume_weight_x_branch_vega(self, eans, branchs):
+    def _volume_x_branch_vega(self, eans, branchs):
         # ean._12 = "Final Purchase"
         eansTemp=eans.rename(columns = {'Final Purchase':'FinalPurchase'})
-        eansTemp.fillna('N/A')
+        othersMOQ=[]
         for ean in eansTemp.itertuples(index=True, name='PandasEANS'):
             if ean.Comentario=='DESCONTINUADO': continue
             for bran in branchs.itertuples(index=True, name='PandasSucursales'):
                 if self._compare_sucursal_vega(bran.Sucursal, ean):
-                    branchs.loc[bran.Index, 'Volumen'] += ean.Volumen * ean.FinalPurchase
+                    if ean.MOQ.upper()=="CAJAS":
+                        branchs.loc[bran.Index, 'Volumen']+= ean.Volumen*ean.FinalPurchase
+                    elif ean.MOQ.upper()=="PALLET":
+                        branchs.loc[bran.Index, 'Volumen']+= ean.Volumen*ean.FinalPurchase*ean.Amarre
+                    elif ean.MOQ.upper()=="CAMAS":
+                        branchs.loc[bran.Index, 'Volumen']+= ean.Volumen*ean.FinalPurchase*ean.AmarreCama
+                    else:
+                        exists=False
+                        for i in range(len(othersMOQ)):
+                            if othersMOQ[i]["EAN"]==ean.EAN:
+                                exists=True
+                                break
+                        if not exists:
+                            othersMOQ.append({"EAN":ean.EAN, "Descripcion":ean.Descripción})
                     break
+        if len(othersMOQ)>0:
+            ErroresEANSMOQ = pd.DataFrame(othersMOQ)
+            ErroresEANSMOQ.loc[:,'Comentario'] = 'Verificar que el MOQ del EAN sea (CAJAS, PALLET, CAMAS)'
+            self.__errores= pd.concat([self.__errores, ErroresEANSMOQ], ignore_index = True)
     def _compare_sucursal_vega(self, sucursal_name, ean):
         if type(ean.Categoria)==float:
             return False
@@ -475,12 +508,12 @@ class Process:
         return others
     def _moq_x_ean(self, eans, moqs):
         # ean._2 = "Codigo EAN"
-        eansTemp=eans.rename(columns = {'Codigo EAN':'CodigoEAN'})
+        moqsTemp=moqs.rename(columns = {'Codigo EAN':'CodigoEAN'})
         sinMOQ=[]
-        for ean in eansTemp.itertuples(index=True, name='PandasEANS'):
+        for ean in eans.itertuples(index=True, name='PandasEANS'):
             encontrado=False
             if ean.Comentario=='DESCONTINUADO': continue
-            for moq in moqs.itertuples(index=True, name='PandasMOQ'):
+            for moq in moqsTemp.itertuples(index=True, name='PandasMOQ'):
                 if ean.EAN==moq.CodigoEAN:
                     encontrado=True
                     try:
@@ -501,19 +534,19 @@ class Process:
             ErroresEANSMOQ = pd.DataFrame(sinMOQ)
             ErroresEANSMOQ.loc[:,'Comentario'] = 'Sin MOQ'
             self.__errores= pd.concat([self.__errores, ErroresEANSMOQ], ignore_index = True)
-    def _match_truck(self, consolidation, trucks, isGranel):
+    def _match_truck(self, consolidation, trucks):
         trucks_order=(self._order_by(trucks,'Volumen Gramel', False)).rename (columns = {'Volumen Gramel':'Volumen', 'LTL?':'LTL', 'Min Pallet':'MinPallet', 'Max Pallet':'MaxPallet'})
         for bran in consolidation.itertuples(index=True, name='PandasBranchs'):
             volumeDifference=float('inf')
             listTrucks=[]
-            volumeDifference=self._get_list_of_trucks(volumeDifference, listTrucks, trucks_order, bran)
+            volumeDifference=self._get_list_of_trucks_vega(volumeDifference, listTrucks, trucks_order, bran)
             list_trucks=[]
             for i in range(len(listTrucks)):
                 list_trucks.append(listTrucks[i].TIPO)
             consolidation.loc[bran.Index, 'Camion'] = str(list_trucks)
             consolidation.loc[bran.Index, 'DiferenciaVolumen']=volumeDifference
         return consolidation
-    def _get_list_of_trucks(self, volumeDifference, listTrucks, trucks, branch):
+    def _get_list_of_trucks_vega(self, volumeDifference, listTrucks, trucks, branch):
         accumulateVolume=0.0
         listTrucksTemp=[]
         volumeDifferenceTemp=volumeDifference
@@ -527,7 +560,7 @@ class Process:
             if math.fabs(truck.Volumen+accumulateVolume-branch.Volumen)<math.fabs(volumeDifferenceTempChange) and self._verify_if_belong_branch(branch.Sucursal, truck):
                 listTrucksTempChange.append(truck)
                 volumeDifferenceTempChange=truck.Volumen+accumulateVolume-branch.Volumen
-                volumeDifferenceTempChange=self._get_list_of_trucks(volumeDifferenceTempChange, listTrucksTempChange, trucks, branch)
+                volumeDifferenceTempChange=self._get_list_of_trucks_vega(volumeDifferenceTempChange, listTrucksTempChange, trucks, branch)
                 if math.fabs(volumeDifferenceTempChange)<math.fabs(volumeDifferenceTemp):
                     listTrucksTemp.clear()
                     for i in range(len(listTrucksTempChange)):
@@ -566,30 +599,37 @@ class Process:
                     NumeroMOQCeil=0.0
                     MOQAjustadoFinal=0.0
                     NCajasAumentar=0
-                    if product.MOQ=="PALLET":
-                        VolumenMOQ = product.Volumen*product.Amarre
-                    elif product.MOQ=="CAMAS":
-                        VolumenMOQ = product.Volumen*product.AmarreCama
-                    else:
-                        continue
+                    if product.MOQ.upper()=="CAJAS":
+                        VolumenMOQ+= product.Volumen*product.FinalPurchase
+                    elif product.MOQ.upper()=="PALLET":
+                        VolumenMOQ+= product.Volumen*product.FinalPurchase*product.Amarre
+                    elif product.MOQ.upper()=="CAMAS":
+                        VolumenMOQ+= product.Volumen*product.FinalPurchase*product.AmarreCama
                     NumeroMOQs=Ajuste*VolumenMOQ
-                    try:
-                        NumeroMOQCeil=round(VolumenMOQ)
-                    except Exception as e:
-                        continue
+                    NumeroMOQCeil=round(VolumenMOQ)
                     MOQAjustadoFinal=NumeroMOQCeil*VolumenMOQ
                     NCajasAumentar=MOQAjustadoFinal/product.Volumen
-                    if MOQAjustadoFinal<product.Volumen*product.FinalPurchase:
-                        continue
-                    if (MOQAjustadoFinal-product.Volumen*product.FinalPurchase+branchs['VolumenAumentado'][branch.Index])<=branch.DiferenciaVolumen:
-                        #Llenado de Data
-                        df.loc[product.Index, 'VolumenMOQ']=VolumenMOQ
-                        df.loc[product.Index, 'Ajuste']=Ajuste
-                        df.loc[product.Index, 'NumeroMOQs']=NumeroMOQs
-                        df.loc[product.Index, 'NumeroMOQCeil']=NumeroMOQCeil
-                        df.loc[product.Index, 'MOQAjustadoFinal']=MOQAjustadoFinal
-                        df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
-                        branchs.loc[branch.Index, 'VolumenAumentado']+=MOQAjustadoFinal-product.Volumen*product.FinalPurchase
+                    if branch.DiferenciaVolumen>0:
+                        if (MOQAjustadoFinal-product.Volumen*product.FinalPurchase+branchs['VolumenAumentado'][branch.Index])<=branch.DiferenciaVolumen:
+                            #Llenado de Data
+                            df.loc[product.Index, 'VolumenMOQ']=VolumenMOQ
+                            df.loc[product.Index, 'Ajuste']=Ajuste
+                            df.loc[product.Index, 'NumeroMOQs']=NumeroMOQs
+                            df.loc[product.Index, 'NumeroMOQCeil']=NumeroMOQCeil
+                            df.loc[product.Index, 'MOQAjustadoFinal']=MOQAjustadoFinal
+                            df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
+                            branchs.loc[branch.Index, 'VolumenAumentado']+=MOQAjustadoFinal-product.Volumen*product.FinalPurchase
+                    else:
+                        if (MOQAjustadoFinal-product.Volumen*product.FinalPurchase+branchs['VolumenAumentado'][branch.Index])>=branch.DiferenciaVolumen:
+                            #Llenado de Data
+                            df.loc[product.Index, 'VolumenMOQ']=VolumenMOQ
+                            df.loc[product.Index, 'Ajuste']=Ajuste
+                            df.loc[product.Index, 'NumeroMOQs']=NumeroMOQs
+                            df.loc[product.Index, 'NumeroMOQCeil']=NumeroMOQCeil
+                            df.loc[product.Index, 'MOQAjustadoFinal']=MOQAjustadoFinal
+                            df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
+                            branchs.loc[branch.Index, 'VolumenAumentado']+=MOQAjustadoFinal-product.Volumen*product.FinalPurchase
+                    #break
     def _compare_branch(self, branch, product):
         if type(branch.Sucursal)!=str or type(product.Sucursal)!=str or type(product.Categoria)!=str:
             return False
@@ -604,26 +644,95 @@ class Process:
         return False
     def _getTotalVolumenVega(self, df_group):
         # product._14 = "ABC XYZ"
-        df_groupTemp=df_group.rename(columns = {'ABC XYZ':'ABCXYZ'})
+        # product._12 = "Final Purchase"
+        df_groupTemp=df_group.rename(columns = {'ABC XYZ':'ABCXYZ', 'Final Purchase':'FinalPurchase'})
         sumVol=0.0
         for prod in df_groupTemp.itertuples(index=True, name='PandasProductsTotal'):
             if prod.ABCXYZ=='CX' or prod.ABCXYZ=='CY' or prod.ABCXYZ=='CZ' or prod.Volumen==0 or prod.Comentario=='DESCONTINUADO': continue
-            if prod.MOQ.upper()=="PALLET":
-                sumVol+= prod.Volumen*prod.Amarre
+            if prod.MOQ.upper()=="CAJAS":
+                sumVol+= prod.Volumen*prod.FinalPurchase
+            elif prod.MOQ.upper()=="PALLET":
+                sumVol+= prod.Volumen*prod.FinalPurchase*prod.Amarre
             elif prod.MOQ.upper()=="CAMAS":
-                sumVol+= prod.Volumen*prod.AmarreCama
+                sumVol+= prod.Volumen*prod.FinalPurchase*prod.AmarreCama
         return sumVol
+    def _fill_data_product_vega(self, df):
+        dfTemp=df.rename(columns = {'Final Purchase':'FinalPurchase'})
+        for product in dfTemp.itertuples(index=True, name='PandasProducts'):
+            if product.Comentario=='DESCONTINUADO': continue
+            if product.MOQ.upper()=="CAJAS":
+                if product.NCajasAumentar==0.0:
+                    df.loc[product.Index, 'CompraFinal']=product.FinalPurchase
+                    df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*product.FinalPurchase
+                else:
+                    df.loc[product.Index, 'CompraFinal']=product.FinalPurchase+product.NCajasAumentar
+                    df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)
+                """ppallet=df['CompraFinal'][product.Index]/product.Amarre
+                if ppallet<1.0:
+                    df.loc[product.Index, 'NCajasPicking']=ppallet*product.Amarre
+                else:
+                    df.loc[product.Index, 'NCajasPicking']=(ppallet-math.floor(ppallet))*product.Amarre"""
+            elif product.MOQ.upper()=="PALLET":
+                if product.NCajasAumentar==0.0:
+                    df.loc[product.Index, 'CompraFinal']=product.FinalPurchase+product.NCajasAumentar
+                    df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*product.FinalPurchase*product.Amarre
+                else:
+                    df.loc[product.Index, 'CompraFinal']=product.FinalPurchase
+                    df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)*product.Amarre
+                """ppallet=df['CompraFinal'][product.Index]/product.Amarre
+                if ppallet<1.0:
+                    df.loc[product.Index, 'NCajasPicking']=ppallet*product.Amarre
+                else:
+                    df.loc[product.Index, 'NCajasPicking']=(ppallet-math.floor(ppallet))*product.Amarre"""
+            elif product.MOQ.upper()=="CAMAS":
+                if product.NCajasAumentar==0.0:
+                    df.loc[product.Index, 'CompraFinal']=product.FinalPurchase
+                    df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*product.FinalPurchase*product.Amarre
+                else:
+                    df.loc[product.Index, 'CompraFinal']=product.FinalPurchase
+                    df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)*product.Amarre
+                """ppallet=df['CompraFinal'][product.Index]/product.Amarre
+                if ppallet<1.0:
+                    df.loc[product.Index, 'NCajasPicking']=ppallet*product.Amarre
+                else:
+                    df.loc[product.Index, 'NCajasPicking']=(ppallet-math.floor(ppallet))*product.Amarre"""
+    def _fill_data_branch_vega(self, df, branchs):
+        dfTemp=df.rename(columns = {'PRECIO GIV':'PRECIOGIV', 'Venta mensual con factor':'VentaMensual', 'Inv + trans':'InvTrans'})
+        for branch in branchs.itertuples(index=True, name='PandasBranchs'):
+            sumaPicking=0.0
+            sumaFinalPurchase=0.0
+            sumaInventario=0.0
+            sumaVentaMensualFactor=0.0
+            sumaInventarioAjuste=0.0
+            compraFinal=0.0
+            for product in dfTemp.itertuples(index=True, name='PandasProducts'):
+                if self._compare_branch(branch, product):
+                    #sumaPicking+=product.NCajasPicking
+                    sumaFinalPurchase+=product.CompraFinal
+                    sumaInventario+=product.Inventario
+                    sumaInventarioAjuste+=(product.InvTrans + product.CompraFinal)
+                    sumaVentaMensualFactor+=product.VentaMensual
+                    compraFinal+=product.CompraFinal*product.PRECIOGIV
+            #branchs.loc[branch.Index, 'NCajasPicking']=sumaPicking/sumaFinalPurchase
+            branchs.loc[branch.Index, 'DOHInicial']=sumaInventario*30/sumaVentaMensualFactor
+            branchs.loc[branch.Index, 'DOHFinal']=sumaInventarioAjuste*30/sumaVentaMensualFactor
+            branchs.loc[branch.Index, 'CompraFinal']=compraFinal
+            branchs.loc[branch.Index, 'VolumenFinal']=branch.Volumen+branch.VolumenAumentado
     def _delete_unnecesary_fields(self):
         if not self.is_automatic() and self._inputs._numberOption==4:
-            pass
+            del self.__branchs['Cantidad']
+            del self.__branchs['Ruta']
+            """del self.__df_export_order['VolumenMOQ']
+            del self.__df_export_order['Ajuste']
+            del self.__df_export_order['NumeroMOQs']
+            del self.__df_export_order['NumeroMOQCeil']
+            del self.__df_export_order['MOQAjustadoFinal']"""
         else:
             #Eliminar para reporte Sucursal
             del self.__branchs['Cantidad']
-            del self.__branchs['DiferenciaVolumen']
             del self.__branchs['PickingMas']
             del self.__branchs['PickingMenos']
             #Eliminar para reporte General
-            #del self.__df_export_order['Volumen']
             del self.__df_export_order['VolumenAjustado']
             del self.__df_export_order['NCajasAumentar']
             del self.__df_export_order['NCajasAumentarCeil']
@@ -631,6 +740,7 @@ class Process:
             del self.__df_export_order['FinalPurchaseFinal']
             del self.__df_export_order['VolumenFinal']
             del self.__df_export_order['PorcentajePallet']
+            del self.__df_export_order['AmarreCama']
     def get_data(self):
         return self.__df_export_order
     def get_branchs_data(self):
