@@ -37,6 +37,8 @@ class Process:
             print('==>[INFO] Separando Home Care y Otros')
             self.__home_care=self._get_home_care(self.__df_export_order)
             self.__others=self._get_others(self.__df_export_order)
+            self.__home_care=self._order_by_cod_price_volume_weight(self.__home_care)
+            self.__others=self._order_by_cod_price_volume_weight(self.__others)
             print('==>[INFO] procesando data Home Care')
             self._process_data_vega(self.__df_export_order, self.__home_care, self.__branchs)
             print('==>[INFO] procesando data Home Care')
@@ -524,6 +526,11 @@ class Process:
                     break
             if not encontrado:
                 exists=False
+                for i in range(len(self.__errores)):
+                    if self.__errores[i]["EAN"]==ean.EAN:
+                        exists=True
+                        break
+                if exists: continue
                 for i in range(len(sinMOQ)):
                     if sinMOQ[i]["EAN"]==ean.EAN:
                         exists=True
@@ -647,14 +654,13 @@ class Process:
     def _compare_branch(self, branch, product):
         if type(branch.Sucursal)!=str or type(product.Sucursal)!=str or type(product.Categoria)!=str:
             return False
-        partes=branch.Sucursal.split(' ')
-        for i in range(len(partes)):
-            if product.Categoria.upper()=='HOME CARE':
-                if partes[i].upper()==product.Sucursal.upper() and branch.Sucursal.upper().find(product.Categoria.upper())!=-1:
-                    return True
-            else:
-                if partes[i].upper()==product.Sucursal.upper():
-                    return True
+        partes=branch.Sucursal.split(' - ')
+        if product.Categoria.upper()=='HOME CARE':
+            if partes[0].upper()==product.Sucursal.upper() and partes[1].upper()==product.Categoria.upper():
+                return True
+        else:
+            if partes[0].upper()==product.Sucursal.upper() and partes[1].upper()=="OTHERS":
+                return True
         return False
     def _getTotalVolumenVega(self, df_group):
         # product._14 = "ABC XYZ"
