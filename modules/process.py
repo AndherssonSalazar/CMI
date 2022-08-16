@@ -160,7 +160,7 @@ class Process:
             self.__errores= pd.concat([self.__errores, ErroresEANSVolu], ignore_index = True)
     def _amarre_x_ean(self, df, skus):
         # sk._6 = "Amarre Camas"
-        skusTemp=skus.rename(columns = {'Amarre Camas':'AMARRECAMAS'})
+        skusTemp=skus.rename(columns = {'AMARRE CAMAS':'AMARRECAMAS'})
         sinAmarre=[]
         for ean in df.itertuples(index=True, name='PandasEANS'):
             encontrado=False
