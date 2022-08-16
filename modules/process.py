@@ -37,12 +37,24 @@ class Process:
             print('==>[INFO] Separando Home Care y Otros')
             self.__home_care=self._get_home_care(self.__df_export_order)
             self.__others=self._get_others(self.__df_export_order)
-            self.__home_care=self._order_by_cod_price_volume_weight(self.__home_care)
-            self.__others=self._order_by_cod_price_volume_weight(self.__others)
+            print('==>[INFO] Agrupando por sucursal Home Care')
+            self.__list_availables=self._get_branchs_vega(self.__home_care)
+            print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible Home Care')
+            for i in range(len(self.__list_availables)):
+                self.__list_availables[i]=self._order_by_cod_price_volume(self.__list_availables[i])
             print('==>[INFO] procesando data Home Care')
-            self._process_data_vega(self.__df_export_order, self.__home_care, self.__branchs)
-            print('==>[INFO] procesando data Home Care')
-            self._process_data_vega(self.__df_export_order, self.__others, self.__branchs)
+            for i in range(len(self.__list_availables)):
+                print('==>==>[INFO] Asignando o restando volumen Home Care a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
+                self._process_data_vega(self.__df_export_order, self.__list_availables[i], self.__branchs)
+            print('==>[INFO] Agrupando por sucursal Others')
+            self.__list_availables=self._get_branchs_vega(self.__others)
+            print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible Others')
+            for i in range(len(self.__list_availables)):
+                self.__list_availables[i]=self._order_by_cod_price_volume(self.__list_availables[i])
+            print('==>[INFO] procesando data Others')
+            for i in range(len(self.__list_availables)):
+                print('==>==>[INFO] Asignando o restando volumen Others a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
+                self._process_data_vega(self.__df_export_order, self.__list_availables[i], self.__branchs)
             print('==>[INFO] Llenado de data producto')
             self._fill_data_product_vega(self.__df_export_order)
             print('==>[INFO] Llenado de data reporte Sucursal')
@@ -69,9 +81,9 @@ class Process:
             print('==>[INFO] Agrupar Disponible')
             self.__list_availables=self._group_available(self.__df_export_order)
             print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible')
-            #self.__df_export_order = self._order_by_branch_coment_cod_price_volume_weight(self.__df_export_order)
+            #self.__df_export_order = self._order_by_branch_coment_cod_price_volume(self.__df_export_order)
             for i in range(len(self.__list_availables)):
-                self.__list_availables[i]=self._order_by_cod_price_volume_weight(self.__list_availables[i])
+                self.__list_availables[i]=self._order_by_cod_price_volume(self.__list_availables[i])
             print('==>[INFO] Asignando o quitando volumen para camiones optimos')
             for i in range(len(self.__list_availables)):
                 print('==>==>[INFO] Asignando o restando volumen a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
@@ -88,9 +100,9 @@ class Process:
         return self._inputs
     def _order_by(self, df, name_of_column, order):
         return df.sort_values(by=[name_of_column], ascending=[order])
-    def _order_by_cod_price_volume_weight(self, df):
+    def _order_by_cod_price_volume(self, df):
         return df.sort_values(by=['ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, False, False])
-    def _order_by_branch_coment_cod_price_volume_weight(self, df):
+    def _order_by_branch_coment_cod_price_volume(self, df):
         return df.sort_values(by=['Sucursal', 'Comentario', 'ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, True, True, False, False])
     def _volume_x_ean(self, eans, branchs, volumes):
         sinVolumenPeso=[]
@@ -488,6 +500,12 @@ class Process:
             self.__errores= pd.concat([self.__errores, ErroresEANSMOQ], ignore_index = True)
     def _get_home_care(self, df):
         return df.groupby('Categoria').get_group('HOME CARE')
+    def _get_branchs_vega(self, df):
+        list_availables=[]
+        df_branchs=df.groupby('Sucursal')
+        for branch_name in df_branchs.groups.keys():
+            list_availables.append(df_branchs.get_group(branch_name))
+        return list_availables
     def _get_others(self, df):
         others=None
         df_categories=df.groupby('Categoria')
@@ -496,7 +514,7 @@ class Process:
                 if others is None:
                     others=df.groupby('Categoria').get_group(categorie_name)
                 else:
-                    others = pd.concat([others, df.groupby('Categoria').get_group(categorie_name)], ignore_index = True)
+                    others = pd.concat([others, df.groupby('Categoria').get_group(categorie_name)], ignore_index = False)
         return others
     def _moq_x_ean(self, eans, moqs):
         # ean._2 = "Codigo EAN"
@@ -640,7 +658,7 @@ class Process:
                             df.loc[product.Index, 'VolumenFinal']=-VolumenFinal
                             df.loc[product.Index, 'CajasPicking']=-CajasPicking
                             branchs.loc[branch.Index, 'VolumenAumentado']+=-VolumenFinal
-                    #break
+                    break
     def _compare_branch(self, branch, product):
         if type(branch.Sucursal)!=str or type(product.Sucursal)!=str or type(product.Categoria)!=str:
             return False
@@ -671,7 +689,12 @@ class Process:
         for product in dfTemp.itertuples(index=True, name='PandasProducts'):
             if product.Comentario=='DESCONTINUADO': continue
             df.loc[product.Index, 'CompraFinal']=product.FinalPurchase+product.NCajasAumentar
-            df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)
+            if product.MOQ.upper()=="CAJAS":
+                df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)
+            elif product.MOQ.upper()=="PALLET":
+                df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)*product.Amarre
+            elif product.MOQ.upper()=="CAMAS":
+                df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)*product.AmarreCama
     def _fill_data_branch_vega(self, df, branchs):
         dfTemp=df.rename(columns = {'PRECIO GIV':'PRECIOGIV', 'Venta mensual con factor':'VentaMensual', 'Inv + trans':'InvTrans', 'ABC XYZ':'ABCXYZ', 'Final Purchase':'FinalPurchase'})
         for branch in branchs.itertuples(index=True, name='PandasBranchs'):
@@ -682,7 +705,6 @@ class Process:
             sumaInventarioAjuste=0.0
             compraFinal=0.0
             for product in dfTemp.itertuples(index=True, name='PandasProducts'):
-                if product.ABCXYZ=='CX' or product.ABCXYZ=='CY' or product.ABCXYZ=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
                 if self._compare_branch(branch, product):
                     sumaPicking+=product.CajasPicking
                     sumaFinalPurchase+=product.CompraFinal
