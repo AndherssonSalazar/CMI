@@ -466,7 +466,7 @@ class Process:
         for ean in eansTemp.itertuples(index=True, name='PandasEANS'):
             if ean.Comentario=='DESCONTINUADO': continue
             for bran in branchs.itertuples(index=True, name='PandasSucursales'):
-                if self._compare_sucursal_vega(bran.Sucursal, ean):
+                if self._compare_branch(bran, ean):
                     if ean.MOQ.upper()=="CAJAS":
                         branchs.loc[bran.Index, 'Volumen']+= ean.Volumen*ean.FinalPurchase
                     elif ean.MOQ.upper()=="PALLET":
@@ -486,16 +486,6 @@ class Process:
             ErroresEANSMOQ = pd.DataFrame(othersMOQ)
             ErroresEANSMOQ.loc[:,'Comentario'] = 'Verificar que el MOQ del EAN sea (CAJAS, PALLET, CAMAS)'
             self.__errores= pd.concat([self.__errores, ErroresEANSMOQ], ignore_index = True)
-    def _compare_sucursal_vega(self, sucursal_name, ean):
-        if type(ean.Categoria)==float:
-            return False
-        elif ean.Categoria.upper()=='HOME CARE':
-            if sucursal_name.upper()==ean.Sucursal.upper()+' - HOME CARE':
-                return True
-        else:
-            if sucursal_name.upper()==ean.Sucursal.upper()+' - OTHERS':
-                return True
-        return False
     def _get_home_care(self, df):
         return df.groupby('Categoria').get_group('HOME CARE')
     def _get_others(self, df):
@@ -598,7 +588,7 @@ class Process:
             if product.ABCXYZ=='CX' or product.ABCXYZ=='CY' or product.ABCXYZ=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
             for branch in branchs.itertuples(index=True, name='PandasBranchs'):
                 if branch.DiferenciaVolumen==0.0: continue
-                elif (branch.DiferenciaVolumen - branch.VolumenAumentado)==0.0: continue
+                elif (branch.DiferenciaVolumen- branch.VolumenAumentado)==0.0: continue
                 elif self._compare_branch(branch, product):
                     VolumenMOQ=0.0
                     Ajuste=0.0
@@ -611,17 +601,17 @@ class Process:
                     CajasPicking=0
                     #process vega
                     if product.MOQ.upper()=="CAJAS":
-                        VolumenMOQ+= product.Volumen
+                        VolumenMOQ = product.Volumen
                     elif product.MOQ.upper()=="PALLET":
-                        VolumenMOQ+= product.Volumen*product.Amarre
+                        VolumenMOQ = product.Volumen*product.Amarre
                     elif product.MOQ.upper()=="CAMAS":
-                        VolumenMOQ+= product.Volumen*product.AmarreCama
+                        VolumenMOQ = product.Volumen*product.AmarreCama
                     Ajuste=((product.FinalPurchase*product.Volumen)/totalSumVol)*branch.DiferenciaVolumen
                     NumeroMOQs=Ajuste/VolumenMOQ
                     NumeroMOQCeil=round(NumeroMOQs)
-                    NumeroMOQPurchase=product.FinalPurchase/VolumenMOQ
+                    NumeroMOQPurchase=product.FinalPurchase/(VolumenMOQ/product.Volumen)
                     MOQAjustadoFinal=NumeroMOQCeil+NumeroMOQPurchase
-                    NCajasAumentar=VolumenMOQ*MOQAjustadoFinal
+                    NCajasAumentar=(VolumenMOQ/product.Volumen)*MOQAjustadoFinal
                     VolumenFinal=NCajasAumentar*product.Volumen
                     CajasPicking=(NCajasAumentar/product.Amarre-math.floor(NCajasAumentar/product.Amarre))*product.Amarre
                     if branch.DiferenciaVolumen>0:
@@ -646,9 +636,9 @@ class Process:
                             df.loc[product.Index, 'NumeroMOQCeil']=NumeroMOQCeil
                             df.loc[product.Index, 'NumeroMOQPurchase']=NumeroMOQPurchase
                             df.loc[product.Index, 'MOQAjustadoFinal']=MOQAjustadoFinal
-                            df.loc[product.Index, 'NCajasAumentar']=NCajasAumentar
+                            df.loc[product.Index, 'NCajasAumentar']=-NCajasAumentar
                             df.loc[product.Index, 'VolumenFinal']=-VolumenFinal
-                            df.loc[product.Index, 'CajasPicking']=CajasPicking
+                            df.loc[product.Index, 'CajasPicking']=-CajasPicking
                             branchs.loc[branch.Index, 'VolumenAumentado']+=-VolumenFinal
                     #break
     def _compare_branch(self, branch, product):
@@ -683,7 +673,7 @@ class Process:
             df.loc[product.Index, 'CompraFinal']=product.FinalPurchase+product.NCajasAumentar
             df.loc[product.Index, 'VolumenFinalTotal']=product.Volumen*(product.FinalPurchase+product.NCajasAumentar)
     def _fill_data_branch_vega(self, df, branchs):
-        dfTemp=df.rename(columns = {'PRECIO GIV':'PRECIOGIV', 'Venta mensual con factor':'VentaMensual', 'Inv + trans':'InvTrans'})
+        dfTemp=df.rename(columns = {'PRECIO GIV':'PRECIOGIV', 'Venta mensual con factor':'VentaMensual', 'Inv + trans':'InvTrans', 'ABC XYZ':'ABCXYZ', 'Final Purchase':'FinalPurchase'})
         for branch in branchs.itertuples(index=True, name='PandasBranchs'):
             sumaPicking=0.0
             sumaFinalPurchase=0.0
@@ -692,6 +682,7 @@ class Process:
             sumaInventarioAjuste=0.0
             compraFinal=0.0
             for product in dfTemp.itertuples(index=True, name='PandasProducts'):
+                if product.ABCXYZ=='CX' or product.ABCXYZ=='CY' or product.ABCXYZ=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
                 if self._compare_branch(branch, product):
                     sumaPicking+=product.CajasPicking
                     sumaFinalPurchase+=product.CompraFinal
