@@ -41,7 +41,7 @@ class Process:
             self.__list_availables=self._get_branchs_vega(self.__home_care)
             print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible Home Care')
             for i in range(len(self.__list_availables)):
-                self.__list_availables[i]=self._order_by_cod_price_volume(self.__list_availables[i])
+                self.__list_availables[i]=self._order_by_price_volume(self.__list_availables[i])
             print('==>[INFO] procesando data Home Care')
             for i in range(len(self.__list_availables)):
                 print('==>==>[INFO] Asignando o restando volumen Home Care a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
@@ -50,7 +50,7 @@ class Process:
             self.__list_availables=self._get_branchs_vega(self.__others)
             print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible Others')
             for i in range(len(self.__list_availables)):
-                self.__list_availables[i]=self._order_by_cod_price_volume(self.__list_availables[i])
+                self.__list_availables[i]=self._order_by_price_volume(self.__list_availables[i])
             print('==>[INFO] procesando data Others')
             for i in range(len(self.__list_availables)):
                 print('==>==>[INFO] Asignando o restando volumen Others a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
@@ -83,7 +83,7 @@ class Process:
             print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible')
             #self.__df_export_order = self._order_by_branch_coment_cod_price_volume(self.__df_export_order)
             for i in range(len(self.__list_availables)):
-                self.__list_availables[i]=self._order_by_cod_price_volume(self.__list_availables[i])
+                self.__list_availables[i]=self._order_by_price_volume(self.__list_availables[i])
             print('==>[INFO] Asignando o quitando volumen para camiones optimos')
             for i in range(len(self.__list_availables)):
                 print('==>==>[INFO] Asignando o restando volumen a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
@@ -102,6 +102,8 @@ class Process:
         return df.sort_values(by=[name_of_column], ascending=[order])
     def _order_by_cod_price_volume(self, df):
         return df.sort_values(by=['ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, False, False])
+    def _order_by_price_volume(self, df):
+        return df.sort_values(by=['PRECIO GIV', 'Volumen'],ascending=[True, False])
     def _order_by_branch_coment_cod_price_volume(self, df):
         return df.sort_values(by=['Sucursal', 'Comentario', 'ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, True, True, False, False])
     def _volume_x_ean(self, eans, branchs, volumes):
