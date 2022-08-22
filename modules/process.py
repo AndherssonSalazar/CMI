@@ -38,7 +38,7 @@ class Process:
             self.__home_care=self._get_home_care(self.__df_export_order)
             self.__others=self._get_others(self.__df_export_order)
             print('==>[INFO] Agrupando por sucursal Home Care')
-            self.__list_availables=self._get_branchs_vega(self.__home_care)
+            self.__list_availables=self._group_available(self.__home_care)
             print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible Home Care')
             for i in range(len(self.__list_availables)):
                 self.__list_availables[i]=self._order_by_price_volume(self.__list_availables[i])
@@ -47,7 +47,7 @@ class Process:
                 print('==>==>[INFO] Asignando o restando volumen Home Care a la Sucursal: '+ list(self.__list_availables[i]['Sucursal'])[0])
                 self._process_data_vega(self.__df_export_order, self.__list_availables[i], self.__branchs)
             print('==>[INFO] Agrupando por sucursal Others')
-            self.__list_availables=self._get_branchs_vega(self.__others)
+            self.__list_availables=self._group_available(self.__others)
             print('==>[INFO] Ordenar Codigos(A-C) - precios(menor-mayor), volumen(mayor-menor) por cada grupo disponible Others')
             for i in range(len(self.__list_availables)):
                 self.__list_availables[i]=self._order_by_price_volume(self.__list_availables[i])
@@ -605,7 +605,7 @@ class Process:
         totalSumVol=self._getTotalVolumenVega(group_df)
         if totalSumVol==0.0: return
         for product in group_dfTemp.itertuples(index=True, name='PandasProducts'):
-            if product.ABCXYZ=='CX' or product.ABCXYZ=='CY' or product.ABCXYZ=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO': continue
+            if product.ABCXYZ=='CX' or product.ABCXYZ=='CY' or product.ABCXYZ=='CZ' or product.Volumen==0 or product.Comentario=='DESCONTINUADO' or product.FinalPurchase==0: continue
             for branch in branchs.itertuples(index=True, name='PandasBranchs'):
                 if branch.DiferenciaVolumen==0.0: continue
                 elif (branch.DiferenciaVolumen- branch.VolumenAumentado)==0.0: continue
@@ -679,12 +679,13 @@ class Process:
         sumVol=0.0
         for prod in df_groupTemp.itertuples(index=True, name='PandasProductsTotal'):
             if prod.ABCXYZ=='CX' or prod.ABCXYZ=='CY' or prod.ABCXYZ=='CZ' or prod.Volumen==0 or prod.Comentario=='DESCONTINUADO': continue
-            if prod.MOQ.upper()=="CAJAS":
+            """if prod.MOQ.upper()=="CAJAS":
                 sumVol+= prod.Volumen*prod.FinalPurchase
             elif prod.MOQ.upper()=="PALLET":
                 sumVol+= prod.Volumen*prod.FinalPurchase*prod.Amarre
             elif prod.MOQ.upper()=="CAMAS":
-                sumVol+= prod.Volumen*prod.FinalPurchase*prod.AmarreCama
+                sumVol+= prod.Volumen*prod.FinalPurchase*prod.AmarreCama"""
+            sumVol+= prod.Volumen*prod.FinalPurchase
         return sumVol
     def _fill_data_product_vega(self, df):
         dfTemp=df.rename(columns = {'Final Purchase':'FinalPurchase'})
