@@ -488,6 +488,13 @@ class Process:
                     elif ean.MOQ.upper()=="CAMAS":
                         branchs.loc[bran.Index, 'Volumen']+= ean.Volumen*ean.FinalPurchase*ean.AmarreCama
                     else:
+                        existErrors=False
+                        if(self.__errores is not None):
+                            for i in range(len(self.__errores)):
+                                if self.__errores["EAN"][i]==ean.EAN:
+                                    existErrors=True
+                                    break
+                        if existErrors: continue
                         exists=False
                         for i in range(len(othersMOQ)):
                             if othersMOQ[i]["EAN"]==ean.EAN:
@@ -536,11 +543,6 @@ class Process:
                     break
             if not encontrado:
                 exists=False
-                for i in range(len(self.__errores)):
-                    if self.__errores[i]["EAN"]==ean.EAN:
-                        exists=True
-                        break
-                if exists: continue
                 for i in range(len(sinMOQ)):
                     if sinMOQ[i]["EAN"]==ean.EAN:
                         exists=True
