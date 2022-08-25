@@ -101,7 +101,7 @@ class Process:
     def _order_by(self, df, name_of_column, order):
         return df.sort_values(by=[name_of_column], ascending=[order])
     def _order_by_cod_price_volume(self, df):
-        return df.sort_values(by=['ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, False, False])
+        return df.sort_values(by=['ABC XYZ', 'PRECIO GIV', 'Volumen'],ascending=[True, True, False])
     def _order_by_price_volume(self, df):
         return df.sort_values(by=['PRECIO GIV', 'Volumen'],ascending=[True, False])
     def _order_by_branch_coment_cod_price_volume(self, df):
