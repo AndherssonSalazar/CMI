@@ -717,11 +717,18 @@ class Process:
                     sumaInventarioAjuste+=(product.InvTrans + product.CompraFinal)
                     sumaVentaMensualFactor+=product.VentaMensual
                     compraFinal+=product.CompraFinal*product.PRECIOGIV
-            branchs.loc[branch.Index, 'NCajasPicking']=sumaPicking/sumaFinalPurchase
-            branchs.loc[branch.Index, 'DOHInicial']=sumaInventario*30/sumaVentaMensualFactor
-            branchs.loc[branch.Index, 'DOHFinal']=sumaInventarioAjuste*30/sumaVentaMensualFactor
-            branchs.loc[branch.Index, 'CompraFinal']=compraFinal
-            branchs.loc[branch.Index, 'VolumenFinal']=branch.Volumen+branch.VolumenAumentado
+            if sumaFinalPurchase==0 or sumaVentaMensualFactor==0: 
+                branchs.loc[branch.Index, 'NCajasPicking']=0.0
+                branchs.loc[branch.Index, 'DOHInicial']=0.0
+                branchs.loc[branch.Index, 'DOHFinal']=0.0
+                branchs.loc[branch.Index, 'CompraFinal']=0.0
+                branchs.loc[branch.Index, 'VolumenFinal']=0.0
+            else:
+                branchs.loc[branch.Index, 'NCajasPicking']=sumaPicking/sumaFinalPurchase
+                branchs.loc[branch.Index, 'DOHInicial']=sumaInventario*30/sumaVentaMensualFactor
+                branchs.loc[branch.Index, 'DOHFinal']=sumaInventarioAjuste*30/sumaVentaMensualFactor
+                branchs.loc[branch.Index, 'CompraFinal']=compraFinal
+                branchs.loc[branch.Index, 'VolumenFinal']=branch.Volumen+branch.VolumenAumentado
     def _delete_unnecesary_fields(self):
         if not self.is_automatic() and self._inputs._numberOption==4:
             del self.__branchs['Cantidad']
