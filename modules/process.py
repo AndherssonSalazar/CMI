@@ -24,10 +24,10 @@ class Process:
             self.__branchs=pd.concat([self.__branchs, self.__branchs_other], ignore_index = True)
             print('==>[INFO] Obteniendo MOQ por Ean')
             self._moq_x_ean(self.__df_export_order, inputs.df_moq)
-            print('==>[INFO] Obteniendo Peso y volumen Total por Sucursal')
-            self._volume_x_branch_vega(self.__df_export_order, self.__branchs)
             print('==>[INFO] Obteniendo Amarre por Ean')
             self._amarre_x_ean(self.__df_export_order, inputs.df_sku_data)
+            print('==>[INFO] Obteniendo Peso y volumen Total por Sucursal')
+            self._volume_x_branch_vega(self.__df_export_order, self.__branchs)
             if self.__errores is not None:
                 report = Report(None)
                 report.save_error(self.__errores)
@@ -272,6 +272,7 @@ class Process:
             listTrucksTemp.append(listTrucks[i])
             listTrucksTempChange.append(listTrucks[i])
         for truck in trucks.itertuples(index=True, name='PandasTruck'):
+            itero=False
             if math.fabs(truck.Volumen+accumulateVolume-branch.Volumen)<math.fabs(volumeDifferenceTempChange) and self._verify_LTL(branch.TipoCamion, truck):
                 listTrucksTempChange.append(truck)
                 volumeDifferenceTempChange=truck.Volumen+accumulateVolume-branch.Volumen
@@ -285,6 +286,9 @@ class Process:
                 for i in range(len(listTrucks)):
                     listTrucksTempChange.append(listTrucks[i])
                 volumeDifferenceTempChange=volumeDifference
+                if len(listTrucksTempChange)>12:
+                    itero=True
+            if itero: break
         listTrucks.clear()
         for i in range(len(listTrucksTemp)):
             listTrucks.append(listTrucksTemp[i])
@@ -576,6 +580,7 @@ class Process:
             listTrucksTemp.append(listTrucks[i])
             listTrucksTempChange.append(listTrucks[i])
         for truck in trucks.itertuples(index=True, name='PandasTruck'):
+            itero=False
             if math.fabs(truck.Volumen+accumulateVolume-branch.Volumen)<math.fabs(volumeDifferenceTempChange) and self._verify_if_belong_branch(branch.Sucursal, truck):
                 listTrucksTempChange.append(truck)
                 volumeDifferenceTempChange=truck.Volumen+accumulateVolume-branch.Volumen
@@ -589,6 +594,9 @@ class Process:
                 for i in range(len(listTrucks)):
                     listTrucksTempChange.append(listTrucks[i])
                 volumeDifferenceTempChange=volumeDifference
+                if len(listTrucksTempChange)>12:
+                    itero=True
+            if itero: break
         listTrucks.clear()
         for i in range(len(listTrucksTemp)):
             listTrucks.append(listTrucksTemp[i])
