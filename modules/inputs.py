@@ -62,7 +62,7 @@ class Inputs:
         incorrect=True
         while incorrect:
             try:
-                self._numberOption=int(input('==>==>[INPUT] Escribe el numero de la sucursal por favor: '))
+                self._numberOption=int(input('==>==>[INPUT] Escribe el numero de la sucursal por favor:: '))
                 if self._numberOption>0 and self._numberOption<=4:
                     incorrect=False
                 else:
