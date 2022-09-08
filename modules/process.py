@@ -626,7 +626,7 @@ class Process:
                     MOQAjustadoFinal=NumeroMOQCeil+NumeroMOQPurchase
                     NCajasAumentar=(VolumenMOQ/product.Volumen)*MOQAjustadoFinal
                     VolumenFinal=NCajasAumentar*product.Volumen
-                    CajasPicking=((NCajasAumentar-product.FinalPurchase)/product.Amarre-math.floor((NCajasAumentar-product.FinalPurchase)/product.Amarre))*product.Amarre
+                    CajasPicking=((NCajasAumentar)/product.Amarre-math.floor((NCajasAumentar)/product.Amarre))*product.Amarre
                     #Llenado de Data
                     df.loc[product.Index, 'VolumenMOQ']=VolumenMOQ
                     df.loc[product.Index, 'Ajuste']=Ajuste
