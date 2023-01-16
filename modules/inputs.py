@@ -8,6 +8,7 @@ from modules.params import(
     NAME_DF_AB,
     NAME_DF_DIJISA,
     NAME_DF_VEGA,
+    NAME_DF_DEL_PRADO,
     NAME_FOLDER_OUTPUTS,
     NAME_DF_DATA_TRUCK,
     NAME_DF_DATA_CLIENT,
@@ -82,12 +83,13 @@ class Inputs:
         print("==>==> [2]. Alvarez Bohl")
         print("==>==> [3]. Dijisa")
         print("==>==> [4]. Grupo Vega")
+        print("==>==> [5]. Del Prado")
         self._numberOption=0
         incorrect=True
         while incorrect:
             try:
                 self._numberOption=int(input('==>==>[INPUT] Escribe el numero de la sucursal por favor:: '))
-                if self._numberOption>0 and self._numberOption<=4:
+                if self._numberOption>0 and self._numberOption<=5:
                     incorrect=False
                 else:
                     print('==>==>[INFO] El numero de opcion que escribiste no es correcto')
@@ -102,6 +104,8 @@ class Inputs:
             self.df_export=pd.read_excel(os.path.join(NAME_FOLDER_OUTPUTS, NAME_DF_DIJISA), engine="openpyxl")
         elif self._numberOption==4:
             self.df_export=pd.read_excel(os.path.join(NAME_FOLDER_OUTPUTS, NAME_DF_VEGA), engine="openpyxl")
+        elif self._numberOption==5:
+            self.df_export=pd.read_excel(os.path.join(NAME_FOLDER_OUTPUTS, NAME_DF_DEL_PRADO), engine="openpyxl")
     def getDirectories(self):
         return self._ficheros
     def getNumberOption(self):
