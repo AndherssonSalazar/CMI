@@ -14,7 +14,7 @@ class Process:
         self.__branchs=self.__df_export_order.groupby('Sucursal')
         self.__branchs=pd.DataFrame(self.__branchs.size().reset_index(name = "Cantidad"))
         self.__branchs["Ruta"], self.__branchs["Volumen"], self.__branchs["DiferenciaVolumen"], self.__branchs["VolumenAumentado"], self.__branchs["Camion"], self.__branchs["DOHInicial"], self.__branchs["DOHFinal"], self.__branchs["CompraFinal"], self.__branchs["VolumenFinal"], self.__branchs["NCajasPicking"] = ['', 0.0, 0.0, 0.0, '', 0.0, 0.0, 0.0, 0.0, 0.0]
-        if not self.is_automatic() and self._inputs._numberOption==4:
+        if self._inputs.is_grupo_vega:
             self.__df_export_order["Volumen"], self.__df_export_order["VolumenXEAN"], self.__df_export_order["MOQ"], self.__df_export_order["Amarre"], self.__df_export_order["AmarreCama"], self.__df_export_order["VolumenMOQ"], self.__df_export_order["Ajuste"], self.__df_export_order["NumeroMOQs"], self.__df_export_order["NumeroMOQCeil"], self.__df_export_order["NumeroMOQPurchase"], self.__df_export_order["MOQAjustadoFinal"], self.__df_export_order["NCajasAumentar"], self.__df_export_order["VolumenFinal"], self.__df_export_order["CajasPicking"], self.__df_export_order["CompraFinal"], self.__df_export_order["VolumenFinalTotal"]=[0.0, 0.0, "", 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0.0]
             print('==>[INFO] Obteniendo Peso y volumen Total por Ean')
             self._volume_x_ean(self.__df_export_order, None, inputs.df_weight_volume)
@@ -212,6 +212,7 @@ class Process:
             for i in range(numberRows):
                 can_consolidate=can_consolidate.drop(ind)
                 ind+=1
+        print(can_consolidate)
         group_routes=can_consolidate.groupby('Ruta')
         group_routes=pd.DataFrame(group_routes.size().reset_index(name = "Grupos"))
         branchs_consolidation=None
@@ -707,7 +708,7 @@ class Process:
                 branchs.loc[branch.Index, 'CompraFinal']=compraFinal
                 branchs.loc[branch.Index, 'VolumenFinal']=branch.Volumen+branch.VolumenAumentado
     def _delete_unnecesary_fields(self):
-        if not self.is_automatic() and self._inputs._numberOption==4:
+        if not self.is_automatic() and self._inputs.is_grupo_vega :
             del self.__branchs['Cantidad']
             del self.__branchs['Ruta']
             """del self.__df_export_order['VolumenMOQ']

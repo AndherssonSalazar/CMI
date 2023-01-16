@@ -16,7 +16,7 @@ class Report:
     def __init__(self, process) -> None:
         self.process = process
     def _renameColumnsData(self):
-        if not self.process.is_automatic() and self.process.getInputs().getNumberOption()==4:
+        if not self.process.is_automatic() and self.process. self.process.getInputs().is_grupo_vega:
             return self.process.get_data()
         else:
             return self.process.get_data().rename(columns = {'AjustePallet':'Compra Final', 'VolumenFinalTotal':'Volumen Final', 'NCajasPicking':'Picking'})
@@ -24,8 +24,18 @@ class Report:
         return self.process.get_branchs_data().rename (columns = {'DiferenciaVolumen':'Diferencia de Volumen', 'Volumen':'Volumen Inicial', 'VolumenAumentado':'Ajuste Volumen', 'Camion':'Camión', 'DOHInicial':'DOH Inicial', 'DOHFinal':'DOH Final', 'CompraFinal':'Compra Final S/.', 'VolumenFinal':'Volumen Final', 'NCajasPicking':'Cajas Picking'})
     def save_report(self):
         if self.process.is_automatic():
-            self._renameColumnsData().to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1],'Formato_2.11_'+self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1]+'_export.xlsx'))
-            self._renameColumnsBranch().to_excel(os.path.join(NAME_FOLDER_REPORT, self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1], self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1]+NAME_REPORT_BRANCHS))
+            customerReportFolder = self._get_report_folder(self.process.getInputs().getDirectories()[self.process.getInputs().getNumberOption()-1])
+            self._renameColumnsData().to_excel(
+                os.path.join(
+                    NAME_FOLDER_REPORT,
+                    customerReportFolder,
+                    'Formato_2.11_'+customerReportFolder+'_export.xlsx')
+                    )
+            self._renameColumnsBranch().to_excel(
+                os.path.join(
+                    NAME_FOLDER_REPORT,
+                    customerReportFolder,
+                    customerReportFolder+NAME_REPORT_BRANCHS))
         else:
             if self.process.getInputs().getNumberOption()==1:
                 self._renameColumnsData().to_excel(os.path.join(NAME_FOLDER_REPORT, NAME_DF_AGA))
@@ -39,5 +49,12 @@ class Report:
             elif self.process.getInputs().getNumberOption()==4:
                 self._renameColumnsData().to_excel(os.path.join(NAME_FOLDER_REPORT, NAME_DF_VEGA))
                 self._renameColumnsBranch().to_excel(os.path.join(NAME_FOLDER_REPORT, 'Grupo Vega', NAME_REPORT_BRANCHS))
+    
+    def _get_report_folder(self,customer:str):
+        path = os.path.join(NAME_FOLDER_REPORT,customer)
+        if not os.path.exists( path):
+            os.makedirs(path)
+        return customer
+    
     def save_error(self, errors):
         errors.to_excel(NAME_REPORT_ERROR)

@@ -4,6 +4,7 @@ import os
 NAME_FOLDER_INPUTS = 'Inputs'
 NAME_FOLDER_OUTPUTS = 'Outputs'
 NAME_FOLDER_REPORT = 'Reports'
+NAME_GRUPO_VEGA = 'Grupo Vega'
 NAME_DF_AGA=os.path.join('AGA','Formato_2.11_AGA_export.xlsx')
 NAME_DF_AB=os.path.join('Alvarez Bohl','Formato_2.11_AB_export.xlsx')
 NAME_DF_DIJISA=os.path.join('Dijisa','Formato_2.11_Dijisa_export.xlsx')
