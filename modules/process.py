@@ -212,7 +212,6 @@ class Process:
             for i in range(numberRows):
                 can_consolidate=can_consolidate.drop(ind)
                 ind+=1
-        print(can_consolidate)
         group_routes=can_consolidate.groupby('Ruta')
         group_routes=pd.DataFrame(group_routes.size().reset_index(name = "Grupos"))
         branchs_consolidation=None

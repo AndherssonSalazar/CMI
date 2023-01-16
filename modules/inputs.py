@@ -31,10 +31,8 @@ class Inputs:
         self.df_client = pd.read_excel(NAME_DF_DATA_CLIENT, engine="openpyxl")
         self.df_sku_data = pd.read_excel(NAME_DF_SKU_DATA, engine="openpyxl")
         self.df_weight_volume = pd.read_excel(NAME_DF_DATA_WEIGHT_VOLUME, engine="openpyxl")
-        print(self.df_weight_volume)
         #self.df_weight_volume['Volumen']=self.df_weight_volume['Volumen'].apply(lambda x:round(x,2))
         self.df_cmi = pd.read_excel(NAME_DF_DATA_CMI, usecols="A,B,C")
-        print(self.df_cmi)
         if not self.isAutomatic and self.is_grupo_vega :
             self.df_moq = pd.read_excel(NAME_DF_DATA_MOQ, engine="openpyxl")
     def _getAutomaticOutputs(self):
